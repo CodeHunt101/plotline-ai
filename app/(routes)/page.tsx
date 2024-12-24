@@ -59,9 +59,6 @@ export default function Home() {
         ) || 'Sorry, I could not find any relevant information about that.';
         
         setRecommendation({
-          favoriteMovie,
-          mood,
-          preference,
           result
         });
         router.push('/recommendations');

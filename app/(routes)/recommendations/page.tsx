@@ -8,7 +8,6 @@ export default function Recommendations() {
   const router = useRouter()
 
   if (!recommendation) {
-    // Redirect back to home if no recommendation exists
     router.push('/')
     return null
   }

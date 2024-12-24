@@ -2,9 +2,6 @@
 import { createContext, useContext, ReactNode, useState } from 'react';
 
 type MovieRecommendation = {
-  favoriteMovie: string;
-  mood: string;
-  preference: string;
   result: string;
 };
 
