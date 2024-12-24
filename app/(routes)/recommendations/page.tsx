@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useMovie } from '../_context/MovieContext'
+import { useMovie } from '../../contexts/MovieContext'
 
 export default function Recommendations() {
   const { recommendation } = useMovie()

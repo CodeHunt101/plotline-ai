@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react';
 import { useActionState } from "react";
-import { createEmbedding, findNearestMatch, getChatCompletion } from "./utils";
 import { useRouter } from 'next/navigation';
-import { useMovie } from "./_context/MovieContext";
+import { useMovie } from "../contexts/MovieContext";
+import { createEmbedding, getChatCompletion } from '../services/openai';
+import { findNearestMatch } from '../services/supabase';
 
 export default function Home() {
   const router = useRouter();
