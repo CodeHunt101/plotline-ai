@@ -1,9 +1,11 @@
 // import fs from 'fs/promises'
 // import path from 'path'
 // import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
-import { MOVIES } from '../../constants/content'
-import { openai } from '../config/openai'
-import { supabase } from '../config/supabase'
+
+import { MOVIES } from "@/constants/content"
+import { supabase } from "../config/supabase"
+import { openai } from "../config/openai"
+
 
 // async function splitDocument(documentPath: string) {
 //   const fullPath = path.resolve(process.cwd(), documentPath)

@@ -3,13 +3,13 @@
 import React, { useState } from 'react';
 import { useActionState } from "react";
 import { useRouter } from 'next/navigation';
-import { useMovie } from "../contexts/MovieContext";
-import { createEmbedding, getChatCompletion } from '../services/openai';
-import { findNearestMatch } from '../services/supabase';
+import { useMovieContext } from '@/contexts/MovieContext';
+import { createEmbedding, getChatCompletion } from '@/services/openai';
+import { findNearestMatch } from '@/services/supabase';
 
 export default function Home() {
   const router = useRouter();
-  const { setRecommendation } = useMovie();
+  const { setRecommendation } = useMovieContext();
   const [formData, setFormData] = useState({
     favoriteMovie: '',
     mood: '',

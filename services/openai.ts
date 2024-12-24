@@ -1,6 +1,7 @@
+import { openai } from "@/lib/config/openai"
+import { normalizeEmbedding } from "@/lib/utils/seed"
 import { ChatCompletionMessageParam } from "openai/resources/index.mjs"
-import { openai } from "../lib/config/openai"
-import { normalizeEmbedding } from "../lib/utils/seed"
+
 
  export async function createEmbedding(input: string) {
     const embeddingResponse = await openai.embeddings.create({

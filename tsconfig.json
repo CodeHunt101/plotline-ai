@@ -20,7 +20,14 @@
       }
     ],
     "paths": {
-      "@page/*": ["./app/*/page"],
+      "@/*": ["./*"],
+      "@/page/*": ["./app/*/page"],
+      "@/components/*": ["./components/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/services/*": ["./services/*"],
+      "@/contexts/*": ["./contexts/*"],
+      "@/constants/*": ["./constants/*"],
+      "@/types/*": ["./types/*"],
       "@/public/*": ["./public/*"]
     }
   },

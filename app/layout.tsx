@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { carterOne, robotoSlab } from './fonts'
-import { MovieProvider } from './contexts/MovieContext'
 import Image from 'next/image'
 import popcorn from '@/public/popcorn.png'
+import { MovieProvider } from '@/contexts/MovieContext'
 
 export const metadata: Metadata = {
   title: 'Create Next App',

@@ -22,7 +22,7 @@ export function MovieProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useMovie() {
+export function useMovieContext() {
   const context = useContext(MovieContext);
   if (context === undefined) {
     throw new Error('useMovie must be used within a MovieProvider');
