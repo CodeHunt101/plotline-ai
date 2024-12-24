@@ -15,6 +15,12 @@ export default function Home() {
     mood: '',
     preference: ''
   });
+  
+  const [validationErrors, setValidationErrors] = useState({
+    favoriteMovie: false,
+    mood: false,
+    preference: false
+  });
 
   const [error, submitAction, isPending] = useActionState(
     async (_prevState: unknown, formDataObj: FormData) => {
@@ -30,6 +36,14 @@ export default function Home() {
           mood,
           preference
         });
+
+        const newValidationErrors = {
+          favoriteMovie: !favoriteMovie,
+          mood: !mood,
+          preference: !preference
+        };
+        
+        setValidationErrors(newValidationErrors);
 
         if (!favoriteMovie || !mood || !preference) {
           throw new Error('Please fill out all fields');
@@ -68,6 +82,13 @@ export default function Home() {
       ...prev,
       [name]: value
     }));
+    // Clear validation error when user starts typing
+    if (validationErrors[name as keyof typeof validationErrors]) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [name]: false
+      }));
+    }
   };
 
   return (
@@ -82,11 +103,16 @@ export default function Home() {
             </div>
             <textarea
               name="favoriteMovie"
-              className="textarea h-24 placeholder-secondary text-sm"
+              className={`textarea h-24 placeholder-secondary text-sm ${
+                validationErrors.favoriteMovie ? 'border-2 border-red-500' : ''
+              }`}
               placeholder="What's your favorite movie and why?"
               value={formData.favoriteMovie}
               onChange={handleChange}
             ></textarea>
+            {validationErrors.favoriteMovie && (
+              <p className="text-red-500 text-sm mt-1">This field is required</p>
+            )}
           </label>
           <label className="form-control">
             <div className="label">
@@ -96,11 +122,16 @@ export default function Home() {
             </div>
             <textarea
               name="mood"
-              className="textarea h-24 placeholder-secondary text-sm"
+              className={`textarea h-24 placeholder-secondary text-sm ${
+                validationErrors.mood ? 'border-2 border-red-500' : ''
+              }`}
               placeholder="Are you in the mood for something new or a classic?"
               value={formData.mood}
               onChange={handleChange}
             ></textarea>
+            {validationErrors.mood && (
+              <p className="text-red-500 text-sm mt-1">This field is required</p>
+            )}
           </label>
           <label className="form-control">
             <div className="label">
@@ -110,11 +141,16 @@ export default function Home() {
             </div>
             <textarea
               name="preference"
-              className="textarea h-24 placeholder-secondary text-sm"
+              className={`textarea h-24 placeholder-secondary text-sm ${
+                validationErrors.preference ? 'border-2 border-red-500' : ''
+              }`}
               placeholder="Do you wanna have fun or do you want something serious?"
               value={formData.preference}
               onChange={handleChange}
             ></textarea>
+            {validationErrors.preference && (
+              <p className="text-red-500 text-sm mt-1">This field is required</p>
+            )}
           </label>
         </fieldset>
         <button
