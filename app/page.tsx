@@ -1,101 +1,130 @@
-import Image from "next/image";
+'use client'
+
+import React, { useState } from 'react';
+import { useActionState } from "react";
+import { createEmbedding, findNearestMatch, getChatCompletion } from "./utils";
+import { useRouter } from 'next/navigation';
+import { useMovie } from "./_context/MovieContext";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const router = useRouter();
+  const { setRecommendation } = useMovie();
+  const [formData, setFormData] = useState({
+    favoriteMovie: '',
+    mood: '',
+    preference: ''
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+  const [error, submitAction, isPending] = useActionState(
+    async (_prevState: unknown, formDataObj: FormData) => {
+      try {
+        // Extract form data
+        const favoriteMovie = formDataObj.get('favoriteMovie')?.toString() || '';
+        const mood = formDataObj.get('mood')?.toString() || '';
+        const preference = formDataObj.get('preference')?.toString() || '';
+
+        // Update local state with current values
+        setFormData({
+          favoriteMovie,
+          mood,
+          preference
+        });
+
+        if (!favoriteMovie || !mood || !preference) {
+          throw new Error('Please fill out all fields');
+        }
+
+        const embedding = await createEmbedding(
+          `Favorite movie: ${favoriteMovie}\nMood: ${mood}\nPreference: ${preference}`
+        );
+        const match = await findNearestMatch(embedding);
+        const result = await getChatCompletion(
+          match,
+          `Favorite movie: ${favoriteMovie}\nMood: ${mood}\nPreference: ${preference}`
+        ) || 'Sorry, I could not find any relevant information about that.';
+        
+        setRecommendation({
+          favoriteMovie,
+          mood,
+          preference,
+          result
+        });
+        router.push('/recommendations');
+      } catch (err) {
+        if (err instanceof Error) {
+          return err.message;
+        }
+        return 'An unknown error occurred';
+      }
+      return null;
+    },
+    null
+  );
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  return (
+    <>
+      <form action={submitAction}>
+        <fieldset>
+          <label className="form-control">
+            <div className="label">
+              <span className="label-text text-secondary text-base">
+                What&apos;s your favorite movie and why?
+              </span>
+            </div>
+            <textarea
+              name="favoriteMovie"
+              className="textarea h-24 placeholder-secondary text-sm"
+              placeholder="What's your favorite movie and why?"
+              value={formData.favoriteMovie}
+              onChange={handleChange}
+            ></textarea>
+          </label>
+          <label className="form-control">
+            <div className="label">
+              <span className="label-text text-secondary text-base">
+                Are you in the mood for something new or a classic?
+              </span>
+            </div>
+            <textarea
+              name="mood"
+              className="textarea h-24 placeholder-secondary text-sm"
+              placeholder="Are you in the mood for something new or a classic?"
+              value={formData.mood}
+              onChange={handleChange}
+            ></textarea>
+          </label>
+          <label className="form-control">
+            <div className="label">
+              <span className="label-text text-secondary text-base">
+                Do you wanna have fun or do you want something serious?
+              </span>
+            </div>
+            <textarea
+              name="preference"
+              className="textarea h-24 placeholder-secondary text-sm"
+              placeholder="Do you wanna have fun or do you want something serious?"
+              value={formData.preference}
+              onChange={handleChange}
+            ></textarea>
+          </label>
+        </fieldset>
+        <button
+          disabled={isPending}
+          type="submit"
+          className="btn btn-primary block my-3 mx-auto text-3xl w-full mt-12"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          Let&apos;s go
+        </button>
+        {error && <p className="text-red-500">{error}</p>}
+      </form>
+    </>
   );
 }

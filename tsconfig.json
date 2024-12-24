@@ -21,6 +21,7 @@
     ],
     "paths": {
       "@page/*": ["./app/*/page"],
+      "@/public/*": ["./public/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
