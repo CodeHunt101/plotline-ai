@@ -4,20 +4,20 @@ import React, { useState } from 'react';
 import { useActionState } from "react";
 import { useRouter } from 'next/navigation';
 import { useMovieContext } from '@/contexts/MovieContext';
-import { createEmbedding, getChatCompletion } from '@/services/openai';
-import { findNearestMatch } from '@/services/supabase';
+import { getMovieRecommendation } from '@/lib/utils/movie';
+import TextAreaField from '@/components/ui/TextAreaField';
 
 export default function Home() {
   const router = useRouter();
   const { setRecommendation } = useMovieContext();
   const [formData, setFormData] = useState({
-    favoriteMovie: '',
+    favouriteMovie: '',
     mood: '',
     preference: ''
   });
   
   const [validationErrors, setValidationErrors] = useState({
-    favoriteMovie: false,
+    favouriteMovie: false,
     mood: false,
     preference: false
   });
@@ -26,41 +26,34 @@ export default function Home() {
     async (_prevState: unknown, formDataObj: FormData) => {
       try {
         // Extract form data
-        const favoriteMovie = formDataObj.get('favoriteMovie')?.toString() || '';
+        const favouriteMovie = formDataObj.get('favouriteMovie')?.toString() || '';
         const mood = formDataObj.get('mood')?.toString() || '';
         const preference = formDataObj.get('preference')?.toString() || '';
 
         // Update local state with current values
         setFormData({
-          favoriteMovie,
+          favouriteMovie,
           mood,
           preference
         });
 
         const newValidationErrors = {
-          favoriteMovie: !favoriteMovie,
+          favouriteMovie: !favouriteMovie,
           mood: !mood,
           preference: !preference
         };
         
         setValidationErrors(newValidationErrors);
 
-        if (!favoriteMovie || !mood || !preference) {
+        if (!favouriteMovie || !mood || !preference) {
           throw new Error('Please fill out all fields');
         }
 
-        const embedding = await createEmbedding(
-          `Favorite movie: ${favoriteMovie}\nMood: ${mood}\nPreference: ${preference}`
-        );
-        const match = await findNearestMatch(embedding);
-        const result = await getChatCompletion(
-          match,
-          `Favorite movie: ${favoriteMovie}\nMood: ${mood}\nPreference: ${preference}`
-        ) || 'Sorry, I could not find any relevant information about that.';
+        const recommendedMovie = await getMovieRecommendation(formData)
+        console.log({ recommendedMovie });
         
-        setRecommendation({
-          result
-        });
+        setRecommendation(recommendedMovie);
+
         router.push('/recommendations');
       } catch (err) {
         if (err instanceof Error) {
@@ -92,63 +85,30 @@ export default function Home() {
     <>
       <form action={submitAction}>
         <fieldset>
-          <label className="form-control">
-            <div className="label">
-              <span className="label-text text-secondary text-base">
-                What&apos;s your favorite movie and why?
-              </span>
-            </div>
-            <textarea
-              name="favoriteMovie"
-              className={`textarea h-24 placeholder-secondary text-sm ${
-                validationErrors.favoriteMovie ? 'border-2 border-red-500' : ''
-              }`}
-              placeholder="What's your favorite movie and why?"
-              value={formData.favoriteMovie}
-              onChange={handleChange}
-            ></textarea>
-            {validationErrors.favoriteMovie && (
-              <p className="text-red-500 text-sm mt-1">This field is required</p>
-            )}
-          </label>
-          <label className="form-control">
-            <div className="label">
-              <span className="label-text text-secondary text-base">
-                Are you in the mood for something new or a classic?
-              </span>
-            </div>
-            <textarea
-              name="mood"
-              className={`textarea h-24 placeholder-secondary text-sm ${
-                validationErrors.mood ? 'border-2 border-red-500' : ''
-              }`}
-              placeholder="Are you in the mood for something new or a classic?"
-              value={formData.mood}
-              onChange={handleChange}
-            ></textarea>
-            {validationErrors.mood && (
-              <p className="text-red-500 text-sm mt-1">This field is required</p>
-            )}
-          </label>
-          <label className="form-control">
-            <div className="label">
-              <span className="label-text text-secondary text-base">
-                Do you wanna have fun or do you want something serious?
-              </span>
-            </div>
-            <textarea
-              name="preference"
-              className={`textarea h-24 placeholder-secondary text-sm ${
-                validationErrors.preference ? 'border-2 border-red-500' : ''
-              }`}
-              placeholder="Do you wanna have fun or do you want something serious?"
-              value={formData.preference}
-              onChange={handleChange}
-            ></textarea>
-            {validationErrors.preference && (
-              <p className="text-red-500 text-sm mt-1">This field is required</p>
-            )}
-          </label>
+        <TextAreaField
+          label="What's your favorite movie and why?"
+          name="favouriteMovie"
+          value={formData.favouriteMovie}
+          onChange={handleChange}
+          error={validationErrors.favouriteMovie}
+          placeholder="What's your favorite movie and why?"
+        />
+        <TextAreaField
+          label="Are you in the mood for something new or a classic?"
+          name="mood"
+          value={formData.mood}
+          onChange={handleChange}
+          error={validationErrors.mood}
+          placeholder="Are you in the mood for something new or a classic?"
+        />
+        <TextAreaField
+          label="Do you wanna have fun or do you want something serious?"
+          name="preference"
+          value={formData.preference}
+          onChange={handleChange}
+          error={validationErrors.preference}
+          placeholder="Do you wanna have fun or do you want something serious?"
+        />
         </fieldset>
         <button
           disabled={isPending}

@@ -13,18 +13,31 @@ import { ChatCompletionMessageParam } from "openai/resources/index.mjs"
     return normalizeEmbedding(embeddingResponse.data[0].embedding)
   }
 
-const chatMessages: ChatCompletionMessageParam[] = [
-  {
-    role: 'system',
-    content: `You are a passionate movie expert who loves recommending films to others. You'll receive information about the user's preferences, such as their favorite movies, mood, or general tastes. Your goal is to suggest movies based on this information and provide a short and concise explanation in the following format without adding any introduction: <movie_name> (<year>): <explanation>. \n\nGuidelines:\n- Only use the information given in the provided context.\n- If the provided context doesn't have enough detail, check the conversation history for clues.\n- If you can't find an answer from either source, say: \"Sorry, I don't know the answer.\"\n- Never make up recommendations outside the provided context.\n- Keep the tone friendly and conversational, as if you're chatting with a friend.`,
-  },
-]
+  const chatMessages: ChatCompletionMessageParam[] = [
+    {
+      role: 'system',
+      content: `You are a passionate movie expert who loves recommending films to others. 
+      You'll receive information about the user's preferences and a specific list of available movies to recommend from.
+      Your goal is to suggest ONLY movies from the provided movie list, even if you know other films that might be a better match.
+      
+      Guidelines:
+      - You must ONLY recommend movies that are explicitly listed in the provided context
+      - Even if you know other perfect matches, you cannot suggest them
+      - If none of the movies in the context match the preferences, say: "Sorry, I couldn't find a matching movie in the available options"
+      - Your response should explain how the recommended movie relates to the user's preferences
+      - Keep the tone friendly and conversational
+      - Your response must be in plain text`
+    }
+  ]
 
 export async function getChatCompletion(text: string, query: string) {
   if (!text) {
     console.log("Sorry, I couldn't find any relevant information about that.")
     return
   }
+
+  console.log('Context:', text)
+  console.log('User preferences:', query)
 
   chatMessages.push({
     role: 'user',

@@ -1,9 +1,7 @@
 'use client';
+import { MovieRecommendation } from '@/lib/utils/movie';
 import { createContext, useContext, ReactNode, useState } from 'react';
 
-type MovieRecommendation = {
-  result: string;
-};
 
 type MovieContextType = {
   recommendation: MovieRecommendation | null;
@@ -29,4 +27,3 @@ export function useMovieContext() {
   }
   return context;
 }
-
