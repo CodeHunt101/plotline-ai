@@ -2,19 +2,37 @@
 import { MovieRecommendation } from '@/lib/utils/movie';
 import { createContext, useContext, ReactNode, useState } from 'react';
 
+type ParticipantData = {
+  favouriteMovie: string;
+  mood: string;
+  preference: string;
+};
 
 type MovieContextType = {
-  recommendation: MovieRecommendation | null;
-  setRecommendation: (data: MovieRecommendation) => void;
+  participantsData: ParticipantData[];
+  recommendations: MovieRecommendation | null;
+  timeAvailable: string;
+  setParticipantsData: (data: ParticipantData[]) => void;
+  setRecommendations: (data: MovieRecommendation) => void;
+  setGroupTimeAvailable: (time: string) => void;
 };
 
 const MovieContext = createContext<MovieContextType | undefined>(undefined);
 
 export function MovieProvider({ children }: { children: ReactNode }) {
-  const [recommendation, setRecommendation] = useState<MovieRecommendation | null>(null);
+  const [participantsData, setParticipantsData] = useState<ParticipantData[]>([]);
+  const [recommendations, setRecommendations] = useState<MovieRecommendation | null>(null);
+  const [timeAvailable, setGroupTimeAvailable] = useState<string>('');
 
   return (
-    <MovieContext.Provider value={{ recommendation, setRecommendation }}>
+    <MovieContext.Provider value={{ 
+      participantsData, 
+      recommendations, 
+      timeAvailable,
+      setParticipantsData, 
+      setRecommendations,
+      setGroupTimeAvailable
+    }}>
       {children}
     </MovieContext.Provider>
   );

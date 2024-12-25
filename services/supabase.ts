@@ -8,16 +8,16 @@ export type MovieRecord = {
   title: string;
 };
 
-export async function findNearestMatch(embedding: number[]): Promise<Partial<MovieRecord>> {
+export async function findNearestMatch(embedding: number[]): Promise<MovieRecord[]> {
   const { data } = await supabase.rpc('match_movies_3', {
     query_embedding: embedding,
-    match_threshold: 0.3, // Lowered threshold for text-embedding-3-small
-    match_count: 1,
+    match_threshold: 0.1, // Lowered threshold for text-embedding-3-small
+    match_count: 10,
   })
 
   if (!data || data.length === 0) {
     console.log('No matches found')
-    return {content: 'No matches found'}
+    return []
   }
 
   console.log(
@@ -25,7 +25,6 @@ export async function findNearestMatch(embedding: number[]): Promise<Partial<Mov
     data.map((d: {id: number, content: string, similarity: number}) => d.similarity)
   )
 
-  const match: MovieRecord = data[0]
-  console.log({match})
+  const match: MovieRecord[] = data
   return match
 }
