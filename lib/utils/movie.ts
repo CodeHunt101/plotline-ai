@@ -5,7 +5,13 @@ import { ParticipantData } from '@/app/(routes)/page'
 
 export type MovieRecommendation = {
   match: Partial<MovieRecord>[]
-  result: string
+  result: {
+    recommendedMovies: {
+      name: string
+      releaseYear: string
+      synopsis: string
+    }[]
+  }
 }
 
 export type ParticipantsMovieData = {
@@ -26,11 +32,10 @@ export const getMovieRecommendation = async (
 
     const embedding = await createEmbedding(embeddingInput)
     const match = await findNearestMatch(embedding)
-    console.log({ match })
     if (match.length === 0) {
       return {
         match: [],
-        result: 'Sorry, I could not find any relevant information about that.',
+        result: {recommendedMovies: []},
       }
     }
     const result =
@@ -38,7 +43,7 @@ export const getMovieRecommendation = async (
         match.map( (movie, index) => `Movie ${index + 1}: ${movie.content}`).join('\n\n'),
         embeddingInput
       )) || 'Sorry, I could not find any relevant information about that.'
-    return { match, result }
+    return { match, result: JSON.parse(result) }
   } catch (error) {
     if (error instanceof Error) {
       throw error

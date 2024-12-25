@@ -81,7 +81,6 @@ export default function Home() {
         // Add current participant's data to the array
         const updatedParticipantsData = [...allParticipantsData, currentData];
         setAllParticipantsData(updatedParticipantsData);
-        console.log({ updatedParticipantsData });
         if (currentParticipant < totalParticipants) {
           // Move to next participant
           setCurrentParticipant(prev => prev + 1);
@@ -94,8 +93,6 @@ export default function Home() {
         } else {
           // All participants have submitted, make API call
           const recommendedMovies = await getMovieRecommendation({timeAvailable, participantsData: updatedParticipantsData});
-
-          console.log({ recommendedMovies });
           
           setParticipantsData(updatedParticipantsData);
           setRecommendations(recommendedMovies);

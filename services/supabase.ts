@@ -4,12 +4,10 @@ export type MovieRecord = {
   id: number;
   content: string;
   similarity: number;
-  release_year: number;
-  title: string;
 };
 
 export async function findNearestMatch(embedding: number[]): Promise<MovieRecord[]> {
-  const { data } = await supabase.rpc('match_movies_3', {
+  const { data } = await supabase.rpc('match_movies_4', {
     query_embedding: embedding,
     match_threshold: 0.1, // Lowered threshold for text-embedding-3-small
     match_count: 10,
