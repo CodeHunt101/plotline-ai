@@ -1,7 +1,6 @@
 'use client'
 
 import { useMovieContext } from '@/contexts/MovieContext'
-// import { extractSynopses } from '@/lib/utils/movie'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
@@ -9,17 +8,11 @@ export default function Recommendations() {
   const { recommendations } = useMovieContext()
   const router = useRouter()
   const [currentIndex, setCurrentIndex] = useState(0)
-  // const [synopses, setSynopses] = useState<string[]>([])
 
   useEffect(() => {
     if (!recommendations) {
       router.push('/')
     }
-
-    // if (recommendations?.result) {
-    //   setSynopses(extractSynopses(recommendations?.result))
-    // }
-    
   }, [recommendations, router])
 
   if (!recommendations) {
@@ -46,18 +39,20 @@ export default function Recommendations() {
         </div>
       )}
       <div className="text-lg mt-5">{currentMovie.synopsis}</div>
-      {recommendations.result.recommendedMovies.length && 
-      <>
-        <div className="mt-4 text-sm text-gray-500">
-          Movie {currentIndex + 1} of {recommendations.result.recommendedMovies.length}
-        </div>
-        <button
-          onClick={handleNextMovie}
-          className="btn btn-primary block my-3 mx-auto text-3xl w-full mt-16"
-        >
-          Next Movie
-        </button>
-      </>}
+      {recommendations.result.recommendedMovies.length && (
+        <>
+          <div className="mt-4 text-sm text-gray-500">
+            Movie {currentIndex + 1} of{' '}
+            {recommendations.result.recommendedMovies.length}
+          </div>
+          <button
+            onClick={handleNextMovie}
+            className="btn btn-primary block my-3 mx-auto text-3xl w-full mt-16"
+          >
+            Next Movie
+          </button>
+        </>
+      )}
       <button
         onClick={() => router.push('/')}
         className="btn btn-secondary block my-3 mx-auto text-xl w-full"

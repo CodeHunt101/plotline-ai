@@ -1,47 +1,45 @@
-'use client';
-import { MovieRecommendation } from '@/lib/utils/movie';
-import { createContext, useContext, ReactNode, useState } from 'react';
+'use client'
+import { MovieRecommendation } from '@/types/api'
+import { MovieContextType, ParticipantData } from '@/types/movie'
+import { createContext, useContext, ReactNode, useState } from 'react'
 
-type ParticipantData = {
-  favouriteMovie: string;
-  mood: string;
-  preference: string;
-};
-
-type MovieContextType = {
-  participantsData: ParticipantData[];
-  recommendations: MovieRecommendation | null;
-  timeAvailable: string;
-  setParticipantsData: (data: ParticipantData[]) => void;
-  setRecommendations: (data: MovieRecommendation) => void;
-  setGroupTimeAvailable: (time: string) => void;
-};
-
-const MovieContext = createContext<MovieContextType | undefined>(undefined);
+const MovieContext = createContext<MovieContextType | undefined>(undefined)
 
 export function MovieProvider({ children }: { children: ReactNode }) {
-  const [participantsData, setParticipantsData] = useState<ParticipantData[]>([]);
-  const [recommendations, setRecommendations] = useState<MovieRecommendation | null>(null);
-  const [timeAvailable, setGroupTimeAvailable] = useState<string>('');
+  const [participantsData, setParticipantsData] = useState<ParticipantData[]>(
+    []
+  )
+  const [recommendations, setRecommendations] =
+    useState<MovieRecommendation | null>(null)
+  const [timeAvailable, setGroupTimeAvailable] = useState<string>('')
+  const [totalParticipants, setTotalParticipants] = useState<number>(1)
+  const [showParticipantSelect, setShowParticipantSelect] =
+    useState<boolean>(true)
 
   return (
-    <MovieContext.Provider value={{ 
-      participantsData, 
-      recommendations, 
-      timeAvailable,
-      setParticipantsData, 
-      setRecommendations,
-      setGroupTimeAvailable
-    }}>
+    <MovieContext.Provider
+      value={{
+        participantsData,
+        recommendations,
+        timeAvailable,
+        totalParticipants,
+        showParticipantSelect,
+        setParticipantsData,
+        setRecommendations,
+        setGroupTimeAvailable,
+        setTotalParticipants,
+        setShowParticipantSelect,
+      }}
+    >
       {children}
     </MovieContext.Provider>
-  );
+  )
 }
 
 export function useMovieContext() {
-  const context = useContext(MovieContext);
+  const context = useContext(MovieContext)
   if (context === undefined) {
-    throw new Error('useMovie must be used within a MovieProvider');
+    throw new Error('useMovie must be used within a MovieProvider')
   }
-  return context;
+  return context
 }

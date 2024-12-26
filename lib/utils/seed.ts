@@ -1,13 +1,13 @@
-import { supabase } from "../config/supabase"
-import { openai } from "../config/openai"
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter"
+import { supabase } from '../config/supabase'
+import { openai } from '../config/openai'
+import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 
 async function splitDocument(document: string) {
   const response = await fetch(document)
   const text = await response.text()
   const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 250,
-    chunkOverlap: 25,
+    chunkSize: 550,
+    chunkOverlap: 75,
   })
   const output = await splitter.createDocuments([text])
   return output

@@ -24,6 +24,3 @@ h1 {
   font-family: var(--ff-serif, Arial, Helvetica, sans-serif);
 }
 
-textarea {
-  @apply bg-info !important;
-}

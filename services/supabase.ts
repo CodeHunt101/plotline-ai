@@ -1,15 +1,12 @@
-import { supabase } from "../lib/config/supabase"
+import { MovieRecord } from '@/types/api'
+import { supabase } from '../lib/config/supabase'
 
-export type MovieRecord = {
-  id: number;
-  content: string;
-  similarity: number;
-};
-
-export async function findNearestMatch(embedding: number[]): Promise<MovieRecord[]> {
+export async function findNearestMatch(
+  embedding: number[]
+): Promise<MovieRecord[]> {
   const { data } = await supabase.rpc('match_movies_4', {
     query_embedding: embedding,
-    match_threshold: 0.1, // Lowered threshold for text-embedding-3-small
+    match_threshold: 0.3, // Lowered threshold for text-embedding-3-small
     match_count: 10,
   })
 
@@ -20,7 +17,9 @@ export async function findNearestMatch(embedding: number[]): Promise<MovieRecord
 
   console.log(
     'Match scores:',
-    data.map((d: {id: number, content: string, similarity: number}) => d.similarity)
+    data.map(
+      (d: { id: number; content: string; similarity: number }) => d.similarity
+    )
   )
 
   const match: MovieRecord[] = data
