@@ -18,7 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${carterOne} ${robotoSlab} antialiased bg-base-100 h-screen flex justify-center items-center`}
+        className={`${carterOne} ${robotoSlab} antialiased bg-base-100 h-screen flex flex-col justify-center items-center`}
       >
         <MovieProvider>
           <main className="mx-auto px-8 flex flex-col items-center">
@@ -26,6 +26,7 @@ export default function RootLayout({
             <h1 className="text-5xl text-center">PlotlineAI</h1>
             {children}
           </main>
+          <footer className="mx-auto text-center text-sm mt-8"> By Harold Torres</footer>
         </MovieProvider>
       </body>
     </html>

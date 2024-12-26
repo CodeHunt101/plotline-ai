@@ -13,12 +13,10 @@ export type MovieContextType = {
   recommendations: MovieRecommendation | null
   timeAvailable: string
   totalParticipants: number
-  showParticipantSelect: boolean
   setParticipantsData: (data: ParticipantData[]) => void
   setRecommendations: (data: MovieRecommendation) => void
   setGroupTimeAvailable: (time: string) => void
   setTotalParticipants: (total: number) => void
-  setShowParticipantSelect: (show: boolean) => void
 }
 
 export type MovieType = (typeof MOVIE_TYPES)[number]

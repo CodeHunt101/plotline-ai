@@ -13,8 +13,6 @@ export function MovieProvider({ children }: { children: ReactNode }) {
     useState<MovieRecommendation | null>(null)
   const [timeAvailable, setGroupTimeAvailable] = useState<string>('')
   const [totalParticipants, setTotalParticipants] = useState<number>(1)
-  const [showParticipantSelect, setShowParticipantSelect] =
-    useState<boolean>(true)
 
   return (
     <MovieContext.Provider
@@ -23,12 +21,10 @@ export function MovieProvider({ children }: { children: ReactNode }) {
         recommendations,
         timeAvailable,
         totalParticipants,
-        showParticipantSelect,
         setParticipantsData,
         setRecommendations,
         setGroupTimeAvailable,
         setTotalParticipants,
-        setShowParticipantSelect,
       }}
     >
       {children}
