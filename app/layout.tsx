@@ -21,12 +21,12 @@ export default function RootLayout({
         className={`${carterOne} ${robotoSlab} antialiased bg-base-100 min-h-screen flex flex-col justify-center items-center py-4`}
       >
         <MovieProvider>
-          <main className="mx-auto px-8 flex flex-col items-center">
+          <main className="mx-auto px-8 flex flex-col items-center max-w-sm">
             <Image src={popcorn} alt="" className="mx-auto" />
             <h1 className="text-5xl text-center">PlotlineAI</h1>
             {children}
           </main>
-          <footer className="mx-auto text-center text-sm mt-8"> By Harold Torres</footer>
+          <footer className="mx-auto text-center text-sm mt-5"> By Harold Torres</footer>
         </MovieProvider>
       </body>
     </html>

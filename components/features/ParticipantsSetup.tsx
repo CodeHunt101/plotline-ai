@@ -18,8 +18,7 @@ const ParticipantSetup = () => {
 
   return (
     <div className="text-center">
-      <h2 className="text-2xl mb-4">Let&apos;s set up your movie night!</h2>
-        <div className="label-text text-secondary text-start text-lg mb-2">How many people?</div>
+      <div className="label-text text-secondary text-start text-lg mb-2">How many people?</div>
       <div className="mb-6">
         <input
           type="range"
