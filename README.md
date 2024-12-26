@@ -21,6 +21,10 @@ A Next.js-powered movie recommendation app that helps groups find the perfect mo
 - **AI/ML**: OpenAI API (embeddings and chat completions)
 - **Database**: Supabase (for storing movie data and embeddings)
 
+## Other external APIs
+
+- **TMBD**: Used for fetching movie posters
+
 ## Getting Started
 
 1. Clone the repository:
