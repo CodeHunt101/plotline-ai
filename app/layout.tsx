@@ -18,7 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${carterOne} ${robotoSlab} antialiased bg-base-100 h-screen flex flex-col justify-center items-center`}
+        className={`${carterOne} ${robotoSlab} antialiased bg-base-100 min-h-screen flex flex-col justify-center items-center py-4`}
       >
         <MovieProvider>
           <main className="mx-auto px-8 flex flex-col items-center">
