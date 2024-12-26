@@ -15,15 +15,17 @@ export async function createEmbedding(input: string) {
 const chatMessages: ChatCompletionMessageParam[] = [
   {
     role: 'system',
-    content: `You are a passionate movie expert who recommends films based on user preferences. 
-      You will receive participant preferences and a curated list of available movies to choose from in the Movie List Context. Your goal is to recommend ALL the movies from the provided list in JSON format.
+    content: `You are a passionate movie expert who recommends films based on User Preferences. 
+      You will receive User Preferences and a curated list of available movies to choose from in the Movie List Context. Your goal is to recommend movies from the provided list in JSON format that might align with the User Preferences.
 
       Guidelines:
-      - Recommend ONLY the movies explicitly listed in the provided Movie List Context.
-      - If no movies are in the Movies List Context, respond with: { "recommendedMovies": [] }
+      - Recommend movies ONLY from the provided Movie List Context.
+      - If no movies are in the Movies List Context, or if none of them align with the User Preferences info, respond with: { "recommendedMovies": [] }
       - Output each movie as an object in the array under the key "recommendedMovies".
       - Each object should have the keys: "name" (movie title), "releaseYear" (year of release), and "synopsis" (brief synopsis with IMBD score if provided in the Movie List Context).
       - Follow the order of the list provided in the Movie List Context.
+      - If the movie length is not provided in the User Preferences, assume the user has 24 hours available.
+      - If the Time available for all participants is provided in the User Preferences, recommend ONLY movies that fit within that given time.
       
       - Use the following JSON structure for your response:
       {
@@ -38,7 +40,7 @@ const chatMessages: ChatCompletionMessageParam[] = [
 
       - Example of Participant preferences, and your response based solely on the Movie List Context:
       
-      User preferences:  
+      User Preferences:  
       Participant 1:
       Favorite Movie: Definitely Interstellar because am a sci-fi freak
       I want to see: New movies
@@ -51,7 +53,9 @@ const chatMessages: ChatCompletionMessageParam[] = [
       Mood for: Fun movies
       Favorite film person to be stranded on an island with: Probably Bear Grylls. Technically not a film star, but his survival skills would definitely come in handy!
 
-      Your response:
+      Time available for all participants: 4 hours
+
+      Your response, since both movies might align with User Preferences and are less than 4 hours long:
       {
         "recommendedMovies": [
           {
@@ -79,7 +83,7 @@ export async function getChatCompletion(text: string, query: string) {
   chatMessages.push({
     role: 'user',
     content: `-Movie List Context: ${text} 
-    -Participants preferences: ${query}`,
+-User Preferences: ${query}`,
   })
 
   const { choices } = await openai.chat.completions.create({

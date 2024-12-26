@@ -25,8 +25,6 @@ const MovieForm = () => {
     setRecommendations,
   } = useMovieContext()
 
-  console.log({ timeAvailable, participantsData, totalParticipants })
-
   const [currentParticipant, setCurrentParticipant] = useState(1)
   const {
     formData,

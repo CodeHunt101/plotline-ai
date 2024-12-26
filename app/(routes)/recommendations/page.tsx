@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 export default function Recommendations() {
-  const { recommendations } = useMovieContext()
+  const { recommendations, setGroupTimeAvailable } = useMovieContext()
   const router = useRouter()
   const [currentIndex, setCurrentIndex] = useState(0)
 
@@ -32,15 +32,16 @@ export default function Recommendations() {
   const currentMovie = recommendations.result.recommendedMovies[currentIndex]
 
   return (
-    <div className="mt-6">
-      {currentMovie?.name && (
-        <div className="text-3xl mt-12">
-          {`${currentMovie.name} (${currentMovie.releaseYear})`}
-        </div>
-      )}
-      <div className="text-lg mt-5">{currentMovie.synopsis}</div>
-      {recommendations.result.recommendedMovies.length && (
-        <>
+    <>
+      {recommendations.result.recommendedMovies.length ? (
+        <div className="mt-6 text-white">
+          {currentMovie?.name && (
+            <div className="text-3xl mt-12">
+              {`${currentMovie.name} (${currentMovie?.releaseYear})`}
+            </div>
+          )}
+          <div className="text-lg mt-5">{currentMovie?.synopsis}</div>
+
           <div className="mt-4 text-sm text-gray-500">
             Movie {currentIndex + 1} of{' '}
             {recommendations.result.recommendedMovies.length}
@@ -51,14 +52,19 @@ export default function Recommendations() {
           >
             Next Movie
           </button>
-        </>
+        </div>
+      ) : (
+        <div>No recommendations found</div>
       )}
       <button
-        onClick={() => router.push('/')}
+        onClick={() => {
+          setGroupTimeAvailable('')
+          router.push('/')
+        }}
         className="btn btn-secondary block my-3 mx-auto text-xl w-full"
       >
         Start Over
       </button>
-    </div>
+    </>
   )
 }
