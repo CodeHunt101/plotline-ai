@@ -97,7 +97,9 @@ export default function Recommendations() {
               ) : null}
             </>
           )}
-          <div className="text-lg mt-5">{currentMovie?.synopsis}</div>
+          <div className="text-lg mt-5 text-justify">
+            {currentMovie?.synopsis}
+          </div>
 
           <div className="mt-4 text-sm text-gray-500">
             Movie {currentIndex + 1} of{' '}
