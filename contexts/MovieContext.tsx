@@ -3,7 +3,9 @@ import { MovieRecommendation } from '@/types/api'
 import { MovieContextType, ParticipantData } from '@/types/movie'
 import { createContext, useContext, ReactNode, useState } from 'react'
 
-const MovieContext = createContext<MovieContextType | undefined>(undefined)
+export const MovieContext = createContext<MovieContextType | undefined>(
+  undefined
+)
 
 export function MovieProvider({ children }: { children: ReactNode }) {
   const [participantsData, setParticipantsData] = useState<ParticipantData[]>(

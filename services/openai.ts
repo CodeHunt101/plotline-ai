@@ -1,5 +1,5 @@
 import { openai } from '@/lib/config/openai'
-import { normalizeEmbedding } from '@/lib/utils/seed'
+import { normaliseEmbedding } from '@/lib/utils/seed'
 import { ChatCompletionMessageParam } from 'openai/resources/index.mjs'
 
 export async function createEmbedding(input: string) {
@@ -8,14 +8,13 @@ export async function createEmbedding(input: string) {
     input,
   })
 
-  // Normalize the query embedding
-  return normalizeEmbedding(embeddingResponse.data[0].embedding)
+  // Normalise the query embedding
+  return normaliseEmbedding(embeddingResponse.data[0].embedding)
 }
 
-const chatMessages: ChatCompletionMessageParam[] = [
-  {
-    role: 'system',
-    content: `You are a passionate movie expert who recommends films based on User Preferences. 
+const systemMessage: ChatCompletionMessageParam = {
+  role: 'system',
+  content: `You are a passionate movie expert who recommends films based on User Preferences. 
       You will receive User Preferences and a curated list of available movies to choose from in the Movie List Context. Your goal is to recommend movies from the provided list in JSON format that might align with the User Preferences.
 
       Guidelines:
@@ -71,24 +70,31 @@ const chatMessages: ChatCompletionMessageParam[] = [
         ]
       }
       `,
-  },
-]
+}
 
-export async function getChatCompletion(text: string, query: string) {
+export async function getChatCompletion(
+  text: string,
+  query: string,
+  previousMessages: ChatCompletionMessageParam[] = []
+) {
   if (!text) {
     console.log("Sorry, I couldn't find any relevant information about that.")
     return
   }
 
-  chatMessages.push({
-    role: 'user',
-    content: `-Movie List Context: ${text} 
+  const messages: ChatCompletionMessageParam[] = [
+    systemMessage,
+    ...previousMessages,
+    {
+      role: 'user',
+      content: `-Movie List Context: ${text} 
 -User Preferences: ${query}`,
-  })
+    },
+  ]
 
   const { choices } = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
-    messages: chatMessages,
+    messages,
     temperature: 0.65,
     frequency_penalty: 0.5,
     response_format: {
@@ -96,6 +102,5 @@ export async function getChatCompletion(text: string, query: string) {
     },
   })
 
-  chatMessages.push(choices[0].message)
   return choices[0].message.content
 }

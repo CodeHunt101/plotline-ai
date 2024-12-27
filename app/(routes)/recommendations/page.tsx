@@ -79,7 +79,10 @@ export default function Recommendations() {
                 {`${currentMovie.name} (${currentMovie?.releaseYear})`}
               </div>
               {isLoadingPoster ? (
-                <div className="w-64 h-96 bg-gray-700 animate-pulse rounded-lg mx-auto mt-6" />
+                <div
+                  data-testid="poster-loading"
+                  className="w-64 h-96 bg-gray-700 animate-pulse rounded-lg mx-auto mt-6"
+                />
               ) : currentPosterUrl ? (
                 <div className="relative w-[325px] h-[480px] mx-auto mt-6">
                   <Image
@@ -88,7 +91,7 @@ export default function Recommendations() {
                     className="rounded-lg object-cover"
                     priority
                     fill
-                    sizes='325px'
+                    sizes="325px"
                   />
                 </div>
               ) : null}

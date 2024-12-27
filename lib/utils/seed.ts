@@ -41,7 +41,7 @@ export async function createAndStoreEmbeddings() {
         dimensions: 1536,
       })
 
-      const normalizedEmbedding = normalizeEmbedding(
+      const normalizedEmbedding = normaliseEmbedding(
         embeddingResponse.data[0].embedding
       )
 
@@ -65,9 +65,12 @@ export async function createAndStoreEmbeddings() {
   console.log('SUCCESS!')
 }
 
-export function normalizeEmbedding(embedding: number[]) {
+export function normaliseEmbedding(embedding: number[]) {
   const magnitude = Math.sqrt(
     embedding.reduce((sum, val) => sum + val * val, 0)
   )
+  if (magnitude === 0) {
+    return embedding
+  }
   return embedding.map((val) => val / magnitude)
 }

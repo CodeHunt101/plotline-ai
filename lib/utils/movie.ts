@@ -21,7 +21,7 @@ export const getMovieRecommendation = async (
         )
         .join('\n') +
       `\nTime available for all participants: ${movieData.timeAvailable}`
-    
+
     const embedding = await createEmbedding(embeddingInput)
     const match = await findNearestMatch(embedding)
     if (match.length === 0) {

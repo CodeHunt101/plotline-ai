@@ -14,7 +14,7 @@ const MovieFormFields: React.FC<{
 }> = ({ formData, validationErrors, handleTextChange, handleTypeChange }) => (
   <>
     <TextAreaField
-      label="What's your favorite movie and why?"
+      label="What's your favourite movie and why?"
       name="favouriteMovie"
       value={formData.favouriteMovie}
       onChange={handleTextChange}

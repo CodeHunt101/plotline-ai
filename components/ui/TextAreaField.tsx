@@ -1,5 +1,3 @@
-import React from 'react'
-
 type TextAreaFieldProps = {
   label: string
   name: string
@@ -9,14 +7,14 @@ type TextAreaFieldProps = {
   placeholder?: string
 }
 
-const TextAreaField: React.FC<TextAreaFieldProps> = ({
+const TextAreaField = ({
   label,
   name,
   value,
   onChange,
   error,
   placeholder,
-}) => {
+}: TextAreaFieldProps) => {
   return (
     <label className="form-control">
       <div className="label">

@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation'
 
 const MAX_PARTICIPANTS = 10
 
-const ParticipantSetup = () => {
-
+const ParticipantsSetup = () => {
   const router = useRouter()
 
   const {
@@ -18,7 +17,9 @@ const ParticipantSetup = () => {
 
   return (
     <div className="text-center">
-      <div className="label-text text-secondary text-start text-lg mb-2">How many people?</div>
+      <div className="label-text text-secondary text-start text-lg mb-2">
+        How many people?
+      </div>
       <div className="mb-6">
         <input
           type="range"
@@ -56,4 +57,4 @@ const ParticipantSetup = () => {
   )
 }
 
-export default ParticipantSetup
+export default ParticipantsSetup
