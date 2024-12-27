@@ -20,6 +20,7 @@ A Next.js-powered movie recommendation app that helps groups find the perfect mo
 - **Styling**: Tailwind CSS, DaisyUI
 - **AI/ML**: OpenAI API (embeddings and chat completions)
 - **Database**: Supabase (for storing movie data and embeddings)
+- **Testing**: Jest, React Testing Library
 
 ## Other external APIs
 
@@ -48,6 +49,7 @@ Create a `.env` file in the root directory with the following variables:
 NEXT_PUBLIC_OPENAI_API_KEY=your_openai_api_key
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_API_KEY=your_supabase_api_key
+NEXT_PUBLIC_TMBD_ACCESS_TOKEN=your_tmdb_access_token
 ```
 
 4. Run the development server:
@@ -59,7 +61,20 @@ yarn dev
 pnpm dev
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Run the test suite:
+```bash
+# Run tests in watch mode
+npm test
+
+# Run tests for CI
+npm run test:ci
+```
+
+6. Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## Testing
+
+The project uses Jest and React Testing Library for testing. Tests are organised following the same structure as the source code.
 
 ## Project Structure
 
