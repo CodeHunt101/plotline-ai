@@ -2,6 +2,9 @@
 
 A Next.js-powered movie recommendation app that helps groups find the perfect movie for their next watch party. PlotlineAI uses AI to analyse each participant's movie preferences and suggests films that everyone will enjoy.
 
+### Live app:
+[https://plotline-ai.pages.dev/](https://plotline-ai.pages.dev/)
+
 ## Features
 
 - **Group Movie Selection**: Input preferences for up to 10 participants
