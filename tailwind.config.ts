@@ -9,10 +9,8 @@ export default {
   ],
   theme: {
     extend: {
-      extend: {
-        maxWidth: {
-          'sm': '24.75rem',
-        }
+      width: {
+        '96': '24.56rem',
       },
       fontSize: {
         sm: '0.8rem',

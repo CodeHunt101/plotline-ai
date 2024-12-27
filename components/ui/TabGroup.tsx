@@ -11,7 +11,7 @@ const TabGroup = ({
 }) => (
   <div className="mb-4">
     <span className="label-text text-secondary text-base">{label}</span>
-    <div role="tablist" className="tabs tabs-boxed justify-start gap-2">
+    <div role="tablist" className="tabs tabs-boxed justify-start gap-2 max-w-fit">
       {options.map((option) => (
         <button
           key={option}

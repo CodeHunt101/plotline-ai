@@ -16,7 +16,7 @@ const ParticipantsSetup = () => {
   } = useMovieContext()
 
   return (
-    <div className="text-center">
+    <div className="text-center w-full">
       <div className="label-text text-secondary text-start text-lg mb-2">
         How many people?
       </div>

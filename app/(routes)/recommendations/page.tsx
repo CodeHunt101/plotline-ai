@@ -75,7 +75,7 @@ export default function Recommendations() {
         <div className="mt-6">
           {currentMovie?.name && (
             <>
-              <div className="text-3xl mt-12 text-center">
+              <div className="text-3xl text-center">
                 {`${currentMovie.name} (${currentMovie?.releaseYear})`}
               </div>
               {isLoadingPoster ? (
@@ -88,7 +88,7 @@ export default function Recommendations() {
                   <Image
                     src={currentPosterUrl}
                     alt={currentMovie.name}
-                    className="rounded-lg object-cover"
+                    className="rounded-3xl object-cover"
                     priority
                     fill
                     sizes="325px"

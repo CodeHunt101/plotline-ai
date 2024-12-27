@@ -1,9 +1,8 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { carterOne, robotoSlab } from './fonts'
-import Image from 'next/image'
-import popcorn from '@/public/popcorn.png'
 import { MovieProvider } from '@/contexts/MovieContext'
+import Header from '@/components/features/Header'
 
 export const metadata: Metadata = {
   title: 'Create Next App',
@@ -21,9 +20,8 @@ export default function RootLayout({
         className={`${carterOne} ${robotoSlab} antialiased bg-base-100 min-h-screen flex flex-col justify-center items-center py-4`}
       >
         <MovieProvider>
-          <main className="mx-auto px-8 flex flex-col items-center max-w-sm">
-            <Image src={popcorn} alt="" className="mx-auto" />
-            <h1 className="text-5xl text-center">PlotlineAI</h1>
+        <Header />
+          <main className="mx-auto px-8 flex flex-col items-center w-96">
             {children}
           </main>
           <footer className="mx-auto text-center text-sm mt-5"> By Harold Torres</footer>
