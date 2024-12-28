@@ -1,19 +1,19 @@
 import { createAndStoreEmbeddings, normaliseEmbedding } from './seed'
-import { supabase } from '../config/supabase'
-import { openai } from '../config/openai'
+import { SUPABASE_WORKER_URL } from '../config/supabase'
+import { OPENAI_WORKER_URL } from '../config/openai'
+import { waitFor } from '@testing-library/react'
 
 export function mockFetch(data: unknown) {
   return jest.fn().mockImplementation(() =>
     Promise.resolve({
       ok: true,
-      text: () => data,
+      text: () => Promise.resolve(data),
+      json: () => Promise.resolve(data),
     })
   )
 }
 
 // Mock external dependencies
-jest.mock('../config/supabase')
-jest.mock('../config/openai')
 jest.mock('langchain/text_splitter', () => ({
   RecursiveCharacterTextSplitter: jest.fn().mockImplementation(() => ({
     createDocuments: jest
@@ -26,8 +26,16 @@ jest.mock('langchain/text_splitter', () => ({
 }))
 
 describe('seed.ts functions', () => {
+  const originalFetch = global.fetch
+
   beforeEach(() => {
     jest.clearAllMocks()
+    // Reset fetch to a clean mock for each test
+    global.fetch = jest.fn()
+  })
+
+  afterEach(() => {
+    global.fetch = originalFetch
   })
 
   describe('normaliseEmbedding', () => {
@@ -59,100 +67,204 @@ describe('seed.ts functions', () => {
 
   describe('createAndStoreEmbeddings', () => {
     beforeEach(() => {
-      // Mock fetch response
-      window.fetch = mockFetch(
-        'movie1\nmovie2\nmovie3\nmovie4\nmovie5\nmovie6\nmovie7\nmovie8\nmovie9\nmovie10'
-      )
-
-      // Mock OpenAI response
-      ;(openai.embeddings.create as jest.Mock).mockResolvedValue({
-        data: [
-          {
-            embedding: [0.1, 0.2, 0.3],
-          },
-        ],
+      // Mock movies.txt fetch response
+      ;(global.fetch as jest.Mock).mockImplementation((url) => {
+        if (url === '/constants/movies.txt') {
+          return Promise.resolve({
+            ok: true,
+            text: () =>
+              Promise.resolve(
+                'movie1\nmovie2\nmovie3\nmovie4\nmovie5\nmovie6\nmovie7\nmovie8\nmovie9\nmovie10'
+              ),
+          })
+        }
+        // Mock check-empty endpoint
+        if (url === `${SUPABASE_WORKER_URL}/api/check-empty`) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ isEmpty: true }),
+          })
+        }
+        // Mock embeddings API response
+        if (url === `${OPENAI_WORKER_URL}/api/embeddings`) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ embedding: [0.1, 0.2, 0.3] }),
+          })
+        }
+        // Mock insert-movies endpoint
+        if (url === `${SUPABASE_WORKER_URL}/api/insert-movies`) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ error: null }),
+          })
+        }
       })
     })
 
     it('should skip insertion if table is not empty', async () => {
-      // Mock Supabase response for non-empty table
-      ;(supabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue({
-            data: [{ id: 1 }],
-            error: null,
-          }),
-        }),
-      })
+      // Mock check-empty endpoint to return false
+      ;(global.fetch as jest.Mock).mockImplementationOnce(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ isEmpty: false }),
+        })
+      )
 
       await createAndStoreEmbeddings()
 
-      expect(window.fetch).not.toHaveBeenCalled()
-      expect(openai.embeddings.create).not.toHaveBeenCalled()
+      // Check that only the check-empty endpoint was called
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+      expect(global.fetch).toHaveBeenCalledWith(
+        `${SUPABASE_WORKER_URL}/api/check-empty`
+      )
     })
 
     it('should process and store embeddings if table is empty', async () => {
-      // Mock Supabase responses
-      ;(supabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue({
-            data: [],
-            error: null,
-          }),
-        }),
-        insert: jest.fn().mockResolvedValue({ error: null }),
-      })
-
       await createAndStoreEmbeddings()
 
-      expect(window.fetch).toHaveBeenCalledWith('/constants/movies.txt')
-      expect(openai.embeddings.create).toHaveBeenCalledWith({
-        model: 'text-embedding-3-small',
-        input: expect.any(String),
-        dimensions: 1536,
+      // Verify check-empty endpoint call
+      expect(global.fetch).toHaveBeenCalledWith(
+        `${SUPABASE_WORKER_URL}/api/check-empty`
+      )
+
+      // Verify movies.txt fetch
+      waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith('/constants/movies.txt')
+      })
+
+      // Verify embeddings API call
+      waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          `${OPENAI_WORKER_URL}/api/embeddings`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              input: expect.any(String),
+              dimensions: 1536,
+            }),
+          }
+        )
+      })
+
+      // Verify insert-movies endpoint call
+      waitFor(() => {
+        expect(global.fetch).toHaveBeenCalledWith(
+          `${SUPABASE_WORKER_URL}/api/insert-movies`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: expect.any(String),
+          }
+        )
       })
     })
 
-    it('should handle Supabase errors during initial check', async () => {
-      // Mock Supabase error response
-      ;(supabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue({
-            data: null,
-            error: new Error('Database error'),
-          }),
-        }),
-      })
+    it('should handle check-empty endpoint errors', async () => {
+      // Mock check-empty endpoint error
+      ;(global.fetch as jest.Mock).mockImplementationOnce(() =>
+        Promise.reject(new Error('Check empty error'))
+      )
 
-      await createAndStoreEmbeddings()
+      await expect(createAndStoreEmbeddings()).rejects.toThrow(
+        'Check empty error'
+      )
 
-      expect(fetch).not.toHaveBeenCalled()
-      expect(openai.embeddings.create).not.toHaveBeenCalled()
+      expect(global.fetch).toHaveBeenCalledWith(
+        `${SUPABASE_WORKER_URL}/api/check-empty`
+      )
+      expect(global.fetch).not.toHaveBeenCalledWith('/constants/movies.txt')
     })
 
     it('should handle batch insertion errors', async () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
 
-      // Mock successful empty table check but failed insertion
-      ;(supabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue({
-            data: [],
-            error: null,
-          }),
-        }),
-        insert: jest
-          .fn()
-          .mockResolvedValue({ error: new Error('Insertion error') }),
+      // Mock insert-movies endpoint error
+      ;(global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (url === `${SUPABASE_WORKER_URL}/api/insert-movies`) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ error: 'Insertion error' }),
+          })
+        }
+
+        if (url === `${SUPABASE_WORKER_URL}/api/check-empty`) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ isEmpty: true }),
+          })
+        }
+
+        if (url === '/constants/movies.txt') {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('movie1\nmovie2'),
+          })
+        }
+
+        if (url === `${OPENAI_WORKER_URL}/api/embeddings`) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ embedding: [0.1, 0.2, 0.3] }),
+          })
+        }
       })
 
       await createAndStoreEmbeddings()
 
       expect(consoleSpy).toHaveBeenCalledWith(
         'Error inserting batch:',
-        expect.any(Error)
+        'Insertion error'
       )
       consoleSpy.mockRestore()
+    })
+
+    it('should handle embeddings API errors', async () => {
+      // Mock successful responses for initial calls
+      ;(global.fetch as jest.Mock).mockImplementation((url) => {
+        if (url === `${SUPABASE_WORKER_URL}/api/check-empty`) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ isEmpty: true }),
+          })
+        }
+        if (url === '/constants/movies.txt') {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('movie1\nmovie2'),
+          })
+        }
+        // Mock failed embeddings API call
+        if (url === `${OPENAI_WORKER_URL}/api/embeddings`) {
+          return Promise.resolve({
+            ok: false,
+            json: () => Promise.resolve({ error: 'API Error' }),
+          })
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({}),
+        })
+      })
+
+      await expect(createAndStoreEmbeddings()).rejects.toThrow(
+        'Failed to get embeddings'
+      )
+
+      // Verify API calls were made in correct order
+      expect(global.fetch).toHaveBeenCalledWith(
+        `${SUPABASE_WORKER_URL}/api/check-empty`
+      )
+      expect(global.fetch).toHaveBeenCalledWith('/constants/movies.txt')
+      expect(global.fetch).toHaveBeenCalledWith(
+        `${OPENAI_WORKER_URL}/api/embeddings`,
+        expect.any(Object)
+      )
     })
   })
 })

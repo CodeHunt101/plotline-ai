@@ -1,18 +1,22 @@
-import { openai } from '@/lib/config/openai'
-import { normaliseEmbedding } from '@/lib/utils/seed'
 import { ChatCompletionMessageParam } from 'openai/resources/index.mjs'
+import { normaliseEmbedding } from '../lib/utils/seed'
+import { OPENAI_WORKER_URL } from '@/lib/config/openai'
 
 export async function createEmbedding(input: string) {
-  const embeddingResponse = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
-    input,
+  const response = await fetch(`${OPENAI_WORKER_URL}/api/embeddings`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ input }),
   })
 
-  // Normalise the query embedding
-  return normaliseEmbedding(embeddingResponse.data[0].embedding)
+  const data = await response.json()
+
+  return normaliseEmbedding(data.embedding)
 }
 
-const systemMessage: ChatCompletionMessageParam = {
+export const systemMessage: ChatCompletionMessageParam = {
   role: 'system',
   content: `You are a passionate movie expert who recommends films based on User Preferences. 
       You will receive User Preferences and a curated list of available movies to choose from in the Movie List Context. Your goal is to recommend movies from the provided list in JSON format that might align with the User Preferences.
@@ -92,15 +96,14 @@ export async function getChatCompletion(
     },
   ]
 
-  const { choices } = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages,
-    temperature: 0.65,
-    frequency_penalty: 0.5,
-    response_format: {
-      type: 'json_object',
+  const response = await fetch(`${OPENAI_WORKER_URL}/api/movies`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({ messages }),
   })
 
-  return choices[0].message.content
+  const data = await response.json()
+  return data.content
 }

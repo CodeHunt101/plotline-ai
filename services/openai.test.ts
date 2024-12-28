@@ -1,157 +1,130 @@
-import { createEmbedding, getChatCompletion } from './openai'
-import { openai } from '@/lib/config/openai'
 import { normaliseEmbedding } from '@/lib/utils/seed'
+import { createEmbedding, getChatCompletion, systemMessage } from './openai'
 
-// Mock dependencies
-jest.mock('@/lib/config/openai')
-jest.mock('@/lib/utils/seed')
+// Mock the fetch function
+global.fetch = jest.fn()
 
-describe('OpenAI functions', () => {
+// Mock normaliseEmbedding function
+jest.mock('@/lib/utils/seed', () => ({
+  normaliseEmbedding: jest.fn((input) => input),
+}))
+
+describe('OpenAI Service', () => {
   beforeEach(() => {
+    // Clear all mocks before each test
     jest.clearAllMocks()
   })
 
   describe('createEmbedding', () => {
-    it('should create and normalize embeddings correctly', async () => {
+    it('should successfully create an embedding', async () => {
       const mockEmbedding = [0.1, 0.2, 0.3]
-      const mockNormalisedEmbedding = [0.2, 0.4, 0.6]
+      const mockResponse = { embedding: mockEmbedding }
 
-      // Mock OpenAI response
-      ;(openai.embeddings.create as jest.Mock).mockResolvedValue({
-        data: [
-          {
-            embedding: mockEmbedding,
-          },
-        ],
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        json: () => Promise.resolve(mockResponse),
       })
-
-      // Mock normalization function
-      ;(normaliseEmbedding as jest.Mock).mockReturnValue(
-        mockNormalisedEmbedding
-      )
 
       const result = await createEmbedding('test input')
 
-      // Verify OpenAI API was called with correct parameters
-      expect(openai.embeddings.create).toHaveBeenCalledWith({
-        model: 'text-embedding-3-small',
-        input: 'test input',
-      })
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:8787/api/embeddings',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ input: 'test input' }),
+        }
+      )
 
-      // Verify normalization was called with the embedding
       expect(normaliseEmbedding).toHaveBeenCalledWith(mockEmbedding)
-
-      // Verify final result
-      expect(result).toEqual(mockNormalisedEmbedding)
+      expect(result).toEqual(mockEmbedding)
     })
 
-    it('should handle OpenAI API errors', async () => {
-      ;(openai.embeddings.create as jest.Mock).mockRejectedValue(
-        new Error('API Error')
-      )
+    it('should throw an error when the API call fails', async () => {
+      ;(global.fetch as jest.Mock).mockRejectedValueOnce(new Error('API Error'))
 
       await expect(createEmbedding('test input')).rejects.toThrow('API Error')
     })
   })
 
   describe('getChatCompletion', () => {
-    let consoleLogSpy: jest.SpyInstance
+    const mockText = 'Movie List Context'
+    const mockQuery = 'User Preferences'
+    const mockResponse = { content: 'Movie recommendations' }
 
-    beforeEach(() => {
-      consoleLogSpy = jest.spyOn(console, 'log').mockImplementation()
-    })
-
-    afterEach(() => {
-      consoleLogSpy.mockRestore()
-    })
-
-    it('should return undefined when no text is provided', async () => {
-      const result = await getChatCompletion('', 'query')
-
+    it('should return undefined when text is empty', async () => {
+      const result = await getChatCompletion('', mockQuery)
       expect(result).toBeUndefined()
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        "Sorry, I couldn't find any relevant information about that."
-      )
     })
 
-    it('should process chat completion successfully', async () => {
-      const mockResponse = {
-        recommendedMovies: [
-          {
-            name: 'Test Movie',
-            releaseYear: '2023',
-            synopsis: 'Test synopsis',
-          },
-        ],
-      }
-
-      ;(openai.chat.completions.create as jest.Mock).mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify(mockResponse),
-            },
-          },
-        ],
+    it('should successfully get chat completion', async () => {
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        json: () => Promise.resolve(mockResponse),
       })
 
-      const result = await getChatCompletion(
-        'movie context',
-        'user preferences'
+      const result = await getChatCompletion(mockText, mockQuery)
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:8787/api/movies',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messages: [
+              systemMessage,
+              {
+                role: 'user',
+                content: `-Movie List Context: ${mockText} \n-User Preferences: ${mockQuery}`,
+              },
+            ],
+          }),
+        }
       )
 
-      expect(openai.chat.completions.create).toHaveBeenCalledWith({
-        model: 'gpt-4o-mini',
-        messages: expect.arrayContaining([
-          expect.objectContaining({
-            role: 'system',
-          }),
-          expect.objectContaining({
-            role: 'user',
-            content: expect.stringContaining('movie context'),
-          }),
-        ]),
-        temperature: 0.65,
-        frequency_penalty: 0.5,
-        response_format: {
-          type: 'json_object',
-        },
-      })
-
-      expect(result).toBe(JSON.stringify(mockResponse))
+      expect(result).toBe(mockResponse.content)
     })
 
-    it('should maintain chat history when provided', async () => {
+    it('should include previous messages in the request', async () => {
       const previousMessages = [
-        {
-          role: 'user' as const,
-          content: 'previous message',
-        },
-        {
-          role: 'assistant' as const,
-          content: 'previous response',
-        },
+        { role: 'user' as const, content: 'previous message' },
       ]
 
-      ;(openai.chat.completions.create as jest.Mock).mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content: '{}',
-            },
-          },
-        ],
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        json: () => Promise.resolve(mockResponse),
       })
 
-      await getChatCompletion(
-        'movie context',
-        'user preferences',
-        previousMessages
-      )
+      await getChatCompletion(mockText, mockQuery, previousMessages)
 
-      const callArgs = (openai.chat.completions.create as jest.Mock).mock
-        .calls[0][0]
-      expect(callArgs.messages).toHaveLength(4) // system + 2 previous + new user message
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:8787/api/movies',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messages: [
+              systemMessage,
+              ...previousMessages,
+              {
+                role: 'user',
+                content: `-Movie List Context: ${mockText} \n-User Preferences: ${mockQuery}`,
+              },
+            ],
+          }),
+        }
+      )
+    })
+
+    it('should throw an error when the API call fails', async () => {
+      ;(global.fetch as jest.Mock).mockRejectedValueOnce(new Error('API Error'))
+
+      await expect(getChatCompletion(mockText, mockQuery)).rejects.toThrow(
+        'API Error'
+      )
     })
   })
 })

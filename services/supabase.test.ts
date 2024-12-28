@@ -1,103 +1,113 @@
-import { supabase } from '../lib/config/supabase'
+import { SUPABASE_WORKER_URL } from '../lib/config/supabase'
 import { MovieRecord } from '@/types/api'
 import { findNearestMatch } from './supabase'
 
-// Mock supabase
-jest.mock('../lib/config/supabase')
-
 describe('findNearestMatch', () => {
-  it('should return matching movies when matches are found', async () => {
-    const mockMatches: MovieRecord[] = [
-      {
-        id: 1,
-        content: 'Movie 1',
-        similarity: 0.9,
-      },
-      {
-        id: 2,
-        content: 'Movie 2',
-        similarity: 0.8,
-      },
-    ]
+  const originalFetch = global.fetch
+  const mockEmbedding = [0.1, 0.2, 0.3]
+  const mockMatches: MovieRecord[] = [
+    {
+      id: 1,
+      content: 'Test Movie 1',
+      similarity: 0.95,
+    },
+    {
+      id: 2,
+      content: 'Test Movie 2',
+      similarity: 0.85,
+    },
+  ]
 
-    // Mock the supabase RPC call
-    ;(supabase.rpc as jest.Mock).mockResolvedValue({
-      data: mockMatches,
-      error: null,
-    })
-
-    const testEmbedding = [0.1, 0.2, 0.3]
-    const result = await findNearestMatch(testEmbedding)
-
-    // Verify RPC was called with correct parameters
-    expect(supabase.rpc).toHaveBeenCalledWith('match_movies_4', {
-      query_embedding: testEmbedding,
-      match_threshold: 0.3,
-      match_count: 10,
-    })
-
-    // Verify results
-    expect(result).toEqual(mockMatches)
+  beforeEach(() => {
+    jest.clearAllMocks()
+    global.fetch = jest.fn()
+    jest.spyOn(console, 'log').mockImplementation()
   })
 
-  it('should return empty array when no matches are found', async () => {
-    // Mock empty response
-    ;(supabase.rpc as jest.Mock).mockResolvedValue({
-      data: [],
-      error: null,
+  afterEach(() => {
+    global.fetch = originalFetch
+    jest.restoreAllMocks()
+  })
+
+  it('should return matches when found', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ matches: mockMatches }),
     })
 
-    const testEmbedding = [0.1, 0.2, 0.3]
-    const result = await findNearestMatch(testEmbedding)
+    const result = await findNearestMatch(mockEmbedding)
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      `${SUPABASE_WORKER_URL}/api/match-movies`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ embedding: mockEmbedding }),
+      }
+    )
+    expect(result).toEqual(mockMatches)
+    expect(console.log).toHaveBeenCalledWith(
+      'Match scores:',
+      mockMatches.map((d) => d.similarity)
+    )
+  })
+
+  it('should return empty array when no matches found', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ matches: [] }),
+    })
+
+    const result = await findNearestMatch(mockEmbedding)
 
     expect(result).toEqual([])
+    expect(console.log).toHaveBeenCalledWith('No matches found')
   })
 
-  it('should return empty array when data is null', async () => {
-    // Mock null response
-    ;(supabase.rpc as jest.Mock).mockResolvedValue({
-      data: null,
-      error: null,
+  it('should return empty array when matches is null', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ matches: null }),
     })
 
-    const testEmbedding = [0.1, 0.2, 0.3]
-    const result = await findNearestMatch(testEmbedding)
+    const result = await findNearestMatch(mockEmbedding)
 
     expect(result).toEqual([])
+    expect(console.log).toHaveBeenCalledWith('No matches found')
   })
 
-  it('should handle different similarity scores correctly', async () => {
-    const mockMatches: MovieRecord[] = [
-      { id: 1, content: 'Movie 1', similarity: 0.95 },
-      { id: 2, content: 'Movie 2', similarity: 0.85 },
-      { id: 3, content: 'Movie 3', similarity: 0.75 },
-      { id: 4, content: 'Movie 4', similarity: 0.65 },
-    ]
-
-    ;(supabase.rpc as jest.Mock).mockResolvedValue({
-      data: mockMatches,
-      error: null,
+  it('should return empty array when error occurs', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ error: 'Database error' }),
     })
 
-    const testEmbedding = [0.1, 0.2, 0.3]
-    const result = await findNearestMatch(testEmbedding)
+    const result = await findNearestMatch(mockEmbedding)
 
-    expect(result).toEqual(mockMatches)
+    expect(result).toEqual([])
+    expect(console.log).toHaveBeenCalledWith('No matches found')
   })
 
-  it('should use correct match threshold and count', async () => {
-    ;(supabase.rpc as jest.Mock).mockResolvedValue({
-      data: [],
-      error: null,
+  it('should handle network errors', async () => {
+    ;(global.fetch as jest.Mock).mockRejectedValueOnce(
+      new Error('Network error')
+    )
+
+    await expect(findNearestMatch(mockEmbedding)).rejects.toThrow(
+      'Network error'
+    )
+  })
+
+  it('should handle invalid JSON response', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.reject(new Error('Invalid JSON')),
     })
 
-    const testEmbedding = [0.1, 0.2, 0.3]
-    await findNearestMatch(testEmbedding)
-
-    expect(supabase.rpc).toHaveBeenCalledWith('match_movies_4', {
-      query_embedding: testEmbedding,
-      match_threshold: 0.3,
-      match_count: 10,
-    })
+    await expect(findNearestMatch(mockEmbedding)).rejects.toThrow(
+      'Invalid JSON'
+    )
   })
 })

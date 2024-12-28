@@ -1,6 +1,6 @@
-import { supabase } from '../config/supabase'
-import { openai } from '../config/openai'
+import { OPENAI_WORKER_URL } from '../config/openai'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
+import { SUPABASE_WORKER_URL } from '../config/supabase'
 
 async function splitDocument(document: string) {
   const response = await fetch(document)
@@ -14,17 +14,14 @@ async function splitDocument(document: string) {
 }
 
 export async function createAndStoreEmbeddings() {
-  const { data: existingData, error } = await supabase
-    .from('movies_4')
-    .select('id')
-    .limit(1)
-
-  if (error) {
-    console.error('Error checking table:', error.message)
-    return
+  const checkResponse = await fetch(`${SUPABASE_WORKER_URL}/api/check-empty`)
+  if (!checkResponse.ok) {
+    const error = await checkResponse.json()
+    throw new Error(error.message || 'Failed to check if table is empty')
   }
+  const { isEmpty } = await checkResponse.json()
 
-  if (existingData.length > 0) {
+  if (!isEmpty) {
     console.log('Table is not empty, skipping insert.')
     return
   }
@@ -35,19 +32,27 @@ export async function createAndStoreEmbeddings() {
 
   const data = await Promise.all(
     chunkData.map(async (chunk) => {
-      const embeddingResponse = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
-        input: chunk.pageContent,
-        dimensions: 1536,
+      const response = await fetch(`${OPENAI_WORKER_URL}/api/embeddings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          input: chunk.pageContent,
+          dimensions: 1536,
+        }),
       })
 
-      const normalizedEmbedding = normaliseEmbedding(
-        embeddingResponse.data[0].embedding
-      )
+      if (!response.ok) {
+        throw new Error('Failed to get embeddings')
+      }
+
+      const { embedding } = await response.json()
+      const normalisedEmbedding = normaliseEmbedding(embedding)
 
       return {
         content: chunk.pageContent,
-        embedding: normalizedEmbedding,
+        embedding: normalisedEmbedding,
       }
     })
   )
@@ -56,9 +61,23 @@ export async function createAndStoreEmbeddings() {
   const batchSize = 100
   for (let i = 0; i < data.length; i += batchSize) {
     const batch = data.slice(i, i + batchSize)
-    const { error } = await supabase.from('movies_4').insert(batch)
-    if (error) {
-      console.error('Error inserting batch:', error)
+    const response = await fetch(`${SUPABASE_WORKER_URL}/api/insert-movies`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ batch }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to insert batch')
+    }
+
+    const result = await response.json()
+    if (result.error) {
+      console.error('Error inserting batch:', result.error)
+      return
     }
   }
 

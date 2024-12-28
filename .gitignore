@@ -43,3 +43,8 @@ next-env.d.ts
 script.js
 text.txt
 notes.txt
+
+.wrangler
+.dev.vars
+dist
+terminal-commands.md
