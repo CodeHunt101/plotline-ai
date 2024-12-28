@@ -23,11 +23,15 @@ const ParticipantsSetup = () => {
 
   return (
     <div className="text-center w-full">
-      <div className="label-text text-secondary text-start text-lg mb-2">
-        How many people?
-      </div>
+      <label 
+          htmlFor="participants-range"
+          className="label-text text-secondary text-start text-lg mb-2 block"
+        >
+          How many people?
+        </label>
       <div className="mb-6">
         <input
+          id="participants-range"
           type="range"
           min="1"
           max={MAX_PARTICIPANTS}
