@@ -17,6 +17,7 @@
     "openai": "^4.77.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "web-streams-polyfill": "^4.0.0",
     "wrangler": "^3.99.0"
   },
   "devDependencies": {
