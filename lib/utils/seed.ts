@@ -22,7 +22,6 @@ export async function createAndStoreEmbeddings() {
   const { isEmpty } = await checkResponse.json()
 
   if (!isEmpty) {
-    console.log('Table is not empty, skipping insert.')
     return
   }
 
