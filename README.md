@@ -1,14 +1,15 @@
 # PlotlineAI 🎬
 
-PlotlineAI is a Next.js-powered movie recommendation app that helps groups find the perfect movie for their next watch party. Using AI to analyse each participant's movie preferences, it suggests films that everyone will enjoy.
+PlotlineAI is a group-oriented movie recommendation system that combines AI and collaborative filtering to suggest movies that everyone in the group will enjoy watching together. Perfect for movie nights, family gatherings, or friend meetups.
 
-[![Live Demo](https://img.shields.io/badge/demo-plotline--ai-blue)](https://plotline-ai.pages.dev/)
+[![Live Demo](https://img.shields.io/badge/demo-plotline--ai-blue)](https://plotline-ai.vercel.app/)
 
 ## 🌟 Key Features
 
 - **Group Movie Selection**
   - Support for up to 10 participants
   - Collaborative filtering based on group preferences
+  - Time-based movie filtering
 
 - **Smart Recommendations**
   - Time-aware suggestions based on available watching time
@@ -18,10 +19,16 @@ PlotlineAI is a Next.js-powered movie recommendation app that helps groups find 
     - Current mood (fun/serious/inspiring/scary)
     - Favourite film personality
 
+- **User Experience**
+  - Movie poster integration via TMDB API
+  - Intuitive form progression
+  - Dynamic movie carousel for recommendations
+
 - **Advanced Technology**
   - AI-powered suggestions using OpenAI embeddings and chat completion models
   - Modern UI built with Next.js 15, React 19 Tailwind CSS, and DaisyUI
   - Edge computing via Cloudflare Workers for optimal performance
+  - Vector similarity search for movie recommendations
 
 ## 🛠️ Tech Stack
 
@@ -36,7 +43,7 @@ PlotlineAI is a Next.js-powered movie recommendation app that helps groups find 
 ### External APIs
 - **TMDB**: Movie poster fetching
 - **OpenAI**: AI recommendations
-- **Supabase**: Data storage
+- **Supabase**: Data storage and vector similarity search
 
 ## 🚀 Getting Started
 
@@ -44,6 +51,7 @@ PlotlineAI is a Next.js-powered movie recommendation app that helps groups find 
 - Node.js (v18.18.0 or higher)
 - npm, yarn, or pnpm
 - API keys for TMDB, OpenAI, and Supabase
+- Supabase database with pgvector extension enabled
 
 ### Installation
 
@@ -76,6 +84,46 @@ Create `.dev.vars` for Cloudflare workers:
 NEXT_PUBLIC_OPENAI_API_KEY=your_openai_api_key
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_API_KEY=your_supabase_api_key
+```
+
+### Database Setup
+
+1. Enable pgvector extension in your Supabase database
+2. Create the necessary tables and functions:
+
+```sql
+-- Enable pgvector extension
+create extension vector;
+
+-- Create movies table with vector similarity search
+create table movies_4 (
+  id bigserial primary key,
+  content text,
+  embedding vector(1536)
+);
+
+-- Create the similarity search function
+create function match_movies_4(
+  query_embedding vector(1536),
+  match_threshold float,
+  match_count int
+)
+returns table (
+  id bigint,
+  content text,
+  similarity float
+)
+language sql stable
+as $$
+  select
+    id,
+    content,
+    1 - (movies_4.embedding <=> query_embedding) as similarity
+  from movies_4
+  where 1 - (movies_4.embedding <=> query_embedding) > match_threshold
+  order by similarity desc
+  limit match_count;
+$$;
 ```
 
 ### Development
@@ -113,12 +161,30 @@ npm test
 npm run test:ci
 ```
 
+### Deployment
+
+1. Deploy Next.js app to Vercel:
+```bash
+vercel
+```
+
+2. Deploy Cloudflare Workers:
+```bash
+# Deploy OpenAI worker
+npx wrangler deploy --config wrangler.openai.toml
+
+# Deploy Supabase worker
+npx wrangler deploy --config wrangler.supabase.toml
+```
+
 ## 📁 Project Structure
 
 ```
 plotline-ai/
 ├── app/                    # Next.js app directory
 │   ├── (routes)/             # Application routes
+│   ├── api/                  # API routes
+│   │   └── embeddings-seed/     # Embeddings initialisation endpoint
 │   ├── globals.css           # Global styles
 │   └── layout.tsx            # Root layout
 ├── components/             # React components
@@ -141,13 +207,24 @@ The application leverages two Cloudflare Workers for enhanced security and perfo
 - Handles all OpenAI API interactions
 - Manages embeddings and chat completions
 - Ensures API key security
+- Rate limiting and error handling
 
 ### Supabase Worker
 - Manages database operations
 - Performs vector similarity searches
+- Handles data seeding and updates
+- Connection pooling and query optimisation
 
 ### Benefits
 - Enhanced security through API key protection
 - Improved performance via edge computing
 - Better scalability and reliability
 - Reduced client-side complexity
+
+## ⚠️ AI Limitations
+
+Please note that PlotlineAI uses artificial intelligence for movie recommendations, and while it strives for accuracy:
+- Recommendations may not always perfectly match group preferences
+- Movie information and details might occasionally be incomplete or imprecise
+- The system works best with clear, detailed input from all participants
+- Results can vary based on the quality and specificity of user inputs
