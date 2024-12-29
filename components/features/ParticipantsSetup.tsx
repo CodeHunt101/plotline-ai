@@ -1,9 +1,7 @@
 'use client'
 
 import { useMovieContext } from '@/contexts/MovieContext'
-import { createAndStoreEmbeddings } from '@/lib/utils/seed'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
 
 const MAX_PARTICIPANTS = 10
 
@@ -16,10 +14,6 @@ const ParticipantsSetup = () => {
     totalParticipants,
     setTotalParticipants,
   } = useMovieContext()
-
-  useEffect(()=>{
-    createAndStoreEmbeddings()
-  },[])
 
   return (
     <div className="text-center w-full">

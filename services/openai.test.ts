@@ -1,11 +1,11 @@
-import { normaliseEmbedding } from '@/lib/utils/seed'
+import { normaliseEmbedding } from '@/lib/utils/embeddings'
 import { createEmbedding, getChatCompletion, systemMessage } from './openai'
 
 // Mock the fetch function
 global.fetch = jest.fn()
 
 // Mock normaliseEmbedding function
-jest.mock('@/lib/utils/seed', () => ({
+jest.mock('@/lib/utils/embeddings', () => ({
   normaliseEmbedding: jest.fn((input) => input),
 }))
 
