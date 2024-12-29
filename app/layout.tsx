@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   authors: [{ name: 'Harold Torres Marino' }],
   creator: 'Harold Torres Marino',
   publisher: 'Harold Torres Marino',
-  metadataBase: new URL('https://plotline-ai.pages.dev'),
+  metadataBase: new URL('https://plotline-ai.vercel.app'),
 }
 
 export default function RootLayout({
