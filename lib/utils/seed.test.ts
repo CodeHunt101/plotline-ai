@@ -1,19 +1,26 @@
-import { createAndStoreEmbeddings, normaliseEmbedding } from './seed'
+import { createAndStoreEmbeddings } from './seed'
 import { SUPABASE_WORKER_URL } from '../config/supabase'
 import { OPENAI_WORKER_URL } from '../config/openai'
 import { waitFor } from '@testing-library/react'
 
-export function mockFetch(data: unknown) {
-  return jest.fn().mockImplementation(() =>
-    Promise.resolve({
-      ok: true,
-      text: () => Promise.resolve(data),
-      json: () => Promise.resolve(data),
-    })
-  )
-}
+// Mock fs promises
+jest.mock('fs', () => ({
+  promises: {
+    readFile: jest.fn(),
+    access: jest.fn().mockResolvedValue(undefined) // Add mock for access
+  }
+}))
 
-// Mock external dependencies
+// Get the mock after it's been initialized
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const mockFs = jest.mocked(require('fs').promises)
+
+// Mock path
+jest.mock('path', () => ({
+  join: jest.fn().mockImplementation((...args) => args.join('/')),
+}))
+
+// Mock RecursiveCharacterTextSplitter
 jest.mock('langchain/text_splitter', () => ({
   RecursiveCharacterTextSplitter: jest.fn().mockImplementation(() => ({
     createDocuments: jest
@@ -27,57 +34,31 @@ jest.mock('langchain/text_splitter', () => ({
 
 describe('seed.ts functions', () => {
   const originalFetch = global.fetch
+  const originalConsoleError = console.error
 
   beforeEach(() => {
     jest.clearAllMocks()
-    // Reset fetch to a clean mock for each test
     global.fetch = jest.fn()
+    console.error = jest.fn() // Mock console.error
+    
+    // Mock successful file access by default
+    mockFs.access.mockResolvedValue(undefined)
+    
+    // Mock file read response
+    mockFs.readFile.mockResolvedValue(
+      'movie1\nmovie2\nmovie3\nmovie4\nmovie5\nmovie6\nmovie7\nmovie8\nmovie9\nmovie10'
+    )
   })
 
   afterEach(() => {
     global.fetch = originalFetch
-  })
-
-  describe('normaliseEmbedding', () => {
-    it('should correctly normalize a vector', () => {
-      const input = [3, 4] // Simple 3-4-5 triangle for easy verification
-      const expected = [0.6, 0.8] // 3/5 and 4/5
-      const result = normaliseEmbedding(input)
-
-      result.forEach((val, idx) => {
-        expect(val).toBeCloseTo(expected[idx], 5)
-      })
-    })
-
-    it('should handle zero vectors', () => {
-      const input = [0, 0, 0]
-      const result = normaliseEmbedding(input)
-      expect(result).toEqual([0, 0, 0])
-    })
-
-    it('should maintain vector direction after normalization', () => {
-      const input = [2, 4, 4]
-      const result = normaliseEmbedding(input)
-
-      // Check if ratios between components are maintained
-      expect(result[1] / result[0]).toBeCloseTo(2, 5)
-      expect(result[2] / result[0]).toBeCloseTo(2, 5)
-    })
+    console.error = originalConsoleError
   })
 
   describe('createAndStoreEmbeddings', () => {
     beforeEach(() => {
-      // Mock movies.txt fetch response
-      ;(global.fetch as jest.Mock).mockImplementation((url) => {
-        if (url === '/constants/movies.txt') {
-          return Promise.resolve({
-            ok: true,
-            text: () =>
-              Promise.resolve(
-                'movie1\nmovie2\nmovie3\nmovie4\nmovie5\nmovie6\nmovie7\nmovie8\nmovie9\nmovie10'
-              ),
-          })
-        }
+      // Mock API responses
+      (global.fetch as jest.Mock).mockImplementation((url) => {
         // Mock check-empty endpoint
         if (url === `${SUPABASE_WORKER_URL}/api/check-empty`) {
           return Promise.resolve({
@@ -96,45 +77,55 @@ describe('seed.ts functions', () => {
         if (url === `${SUPABASE_WORKER_URL}/api/insert-movies`) {
           return Promise.resolve({
             ok: true,
-            json: () => Promise.resolve({ error: null }),
+            json: () => Promise.resolve({ success: true }),
           })
         }
       })
     })
 
     it('should skip insertion if table is not empty', async () => {
-      // Mock check-empty endpoint to return false
-      ;(global.fetch as jest.Mock).mockImplementationOnce(() =>
+      (global.fetch as jest.Mock).mockImplementationOnce(() =>
         Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ isEmpty: false }),
         })
       )
 
-      await createAndStoreEmbeddings()
-
-      // Check that only the check-empty endpoint was called
+      const result = await createAndStoreEmbeddings()
+      
+      expect(result).toEqual({
+        success: true,
+        message: 'Table already populated'
+      })
       expect(global.fetch).toHaveBeenCalledTimes(1)
       expect(global.fetch).toHaveBeenCalledWith(
         `${SUPABASE_WORKER_URL}/api/check-empty`
       )
+      expect(mockFs.readFile).not.toHaveBeenCalled()
     })
 
     it('should process and store embeddings if table is empty', async () => {
-      await createAndStoreEmbeddings()
+      const result = await createAndStoreEmbeddings()
+
+      expect(result).toEqual({
+        success: true,
+        message: 'Embeddings created and stored successfully'
+      })
 
       // Verify check-empty endpoint call
       expect(global.fetch).toHaveBeenCalledWith(
         `${SUPABASE_WORKER_URL}/api/check-empty`
       )
 
-      // Verify movies.txt fetch
-      waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith('/constants/movies.txt')
-      })
+      // Verify file access and read
+      expect(mockFs.access).toHaveBeenCalled()
+      expect(mockFs.readFile).toHaveBeenCalledWith(
+        expect.stringContaining('public/constants/movies.txt'),
+        'utf-8'
+      )
 
-      // Verify embeddings API call
-      waitFor(() => {
+      // Verify embeddings API calls
+      await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
           `${OPENAI_WORKER_URL}/api/embeddings`,
           {
@@ -142,16 +133,13 @@ describe('seed.ts functions', () => {
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              input: expect.any(String),
-              dimensions: 1536,
-            }),
+            body: expect.stringContaining('chunk1'),
           }
         )
       })
 
-      // Verify insert-movies endpoint call
-      waitFor(() => {
+      // Verify insert-movies endpoint calls
+      await waitFor(() => {
         expect(global.fetch).toHaveBeenCalledWith(
           `${SUPABASE_WORKER_URL}/api/insert-movies`,
           {
@@ -165,85 +153,49 @@ describe('seed.ts functions', () => {
       })
     })
 
+    it('should handle file not found error', async () => {
+      mockFs.access.mockRejectedValue(new Error('File not found'))
+      
+      await expect(createAndStoreEmbeddings()).rejects.toThrow(
+        'File not found at path'
+      )
+      
+      expect(console.error).toHaveBeenCalledWith(
+        'Error in splitDocument:',
+        expect.any(Error)
+      )
+    })
+
     it('should handle check-empty endpoint errors', async () => {
-      // Mock check-empty endpoint error
-      ;(global.fetch as jest.Mock).mockImplementationOnce(() =>
-        Promise.reject(new Error('Check empty error'))
+      (global.fetch as jest.Mock).mockImplementationOnce(() =>
+        Promise.resolve({
+          ok: false,
+          status: 500
+        })
       )
 
       await expect(createAndStoreEmbeddings()).rejects.toThrow(
-        'Check empty error'
+        'Failed to check if table is empty: 500'
       )
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        `${SUPABASE_WORKER_URL}/api/check-empty`
+      expect(console.error).toHaveBeenCalledWith(
+        'Error in createAndStoreEmbeddings:',
+        expect.any(Error)
       )
-      expect(global.fetch).not.toHaveBeenCalledWith('/constants/movies.txt')
-    })
-
-    it('should handle batch insertion errors', async () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-
-      // Mock insert-movies endpoint error
-      ;(global.fetch as jest.Mock).mockImplementation((url: string) => {
-        if (url === `${SUPABASE_WORKER_URL}/api/insert-movies`) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ error: 'Insertion error' }),
-          })
-        }
-
-        if (url === `${SUPABASE_WORKER_URL}/api/check-empty`) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ isEmpty: true }),
-          })
-        }
-
-        if (url === '/constants/movies.txt') {
-          return Promise.resolve({
-            ok: true,
-            text: () => Promise.resolve('movie1\nmovie2'),
-          })
-        }
-
-        if (url === `${OPENAI_WORKER_URL}/api/embeddings`) {
-          return Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({ embedding: [0.1, 0.2, 0.3] }),
-          })
-        }
-      })
-
-      await createAndStoreEmbeddings()
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        'Error inserting batch:',
-        'Insertion error'
-      )
-      consoleSpy.mockRestore()
     })
 
     it('should handle embeddings API errors', async () => {
-      // Mock successful responses for initial calls
-      ;(global.fetch as jest.Mock).mockImplementation((url) => {
+      (global.fetch as jest.Mock).mockImplementation((url) => {
         if (url === `${SUPABASE_WORKER_URL}/api/check-empty`) {
           return Promise.resolve({
             ok: true,
             json: () => Promise.resolve({ isEmpty: true }),
           })
         }
-        if (url === '/constants/movies.txt') {
-          return Promise.resolve({
-            ok: true,
-            text: () => Promise.resolve('movie1\nmovie2'),
-          })
-        }
-        // Mock failed embeddings API call
         if (url === `${OPENAI_WORKER_URL}/api/embeddings`) {
           return Promise.resolve({
             ok: false,
-            json: () => Promise.resolve({ error: 'API Error' }),
+            status: 500
           })
         }
         return Promise.resolve({
@@ -253,17 +205,44 @@ describe('seed.ts functions', () => {
       })
 
       await expect(createAndStoreEmbeddings()).rejects.toThrow(
-        'Failed to get embeddings'
+        'Failed to get embeddings: 500'
       )
 
-      // Verify API calls were made in correct order
-      expect(global.fetch).toHaveBeenCalledWith(
-        `${SUPABASE_WORKER_URL}/api/check-empty`
+      expect(console.error).toHaveBeenCalledWith(
+        'Error in createAndStoreEmbeddings:',
+        expect.any(Error)
       )
-      expect(global.fetch).toHaveBeenCalledWith('/constants/movies.txt')
-      expect(global.fetch).toHaveBeenCalledWith(
-        `${OPENAI_WORKER_URL}/api/embeddings`,
-        expect.any(Object)
+    })
+
+    it('should handle batch insertion errors', async () => {
+      (global.fetch as jest.Mock).mockImplementation((url) => {
+        if (url === `${SUPABASE_WORKER_URL}/api/insert-movies`) {
+          return Promise.resolve({
+            ok: false,
+            status: 500
+          })
+        }
+        if (url === `${SUPABASE_WORKER_URL}/api/check-empty`) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ isEmpty: true }),
+          })
+        }
+        if (url === `${OPENAI_WORKER_URL}/api/embeddings`) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ embedding: [0.1, 0.2, 0.3] }),
+          })
+        }
+      })
+
+      await expect(createAndStoreEmbeddings()).rejects.toThrow(
+        'Failed to insert batch: 500'
+      )
+
+      expect(console.error).toHaveBeenCalledWith(
+        'Error in createAndStoreEmbeddings:',
+        expect.any(Error)
       )
     })
   })
