@@ -4,7 +4,7 @@ import { useMovieContext } from '@/contexts/MovieContext'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { getMoviePoster } from '@/services/tmdb'
+import { searchMoviePoster } from '@/lib/services/tmdb'
 
 export default function Recommendations() {
   const { recommendations, setGroupTimeAvailable } = useMovieContext()
@@ -33,7 +33,7 @@ export default function Recommendations() {
 
       setIsLoadingPoster(true)
       try {
-        const url = await getMoviePoster(currentMovie.name)
+        const url = await searchMoviePoster(currentMovie.name)
         setPosterUrls((prev) => ({
           ...prev,
           [currentMovie.name]: url || '',

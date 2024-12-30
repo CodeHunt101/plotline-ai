@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { useRouter } from 'next/navigation'
 import { useMovieContext } from '@/contexts/MovieContext'
-import { getMoviePoster } from '@/services/tmdb'
+import { searchMoviePoster } from '@/lib/services/tmdb'
 import Recommendations from './page'
 
 jest.mock('next/navigation', () => ({
@@ -19,7 +19,7 @@ jest.mock('next/image', () => ({
 
 // Mock the movie poster service
 jest.mock('@/services/tmdb', () => ({
-  getMoviePoster: jest.fn(),
+  searchMoviePoster: jest.fn(),
 }))
 
 jest.mock('@/contexts/MovieContext', () => ({
@@ -58,7 +58,7 @@ describe('Recommendations Component', () => {
       recommendations: mockRecommendations,
       setGroupTimeAvailable: mockSetGroupTimeAvailable,
     })
-    ;(getMoviePoster as jest.Mock).mockResolvedValue(
+    ;(searchMoviePoster as jest.Mock).mockResolvedValue(
       'http://example.com/poster.jpg'
     )
   })
@@ -85,7 +85,7 @@ describe('Recommendations Component', () => {
   })
 
   it('shows loading state while fetching poster', async () => {
-    ;(getMoviePoster as jest.Mock).mockImplementation(
+    ;(searchMoviePoster as jest.Mock).mockImplementation(
       () => new Promise(() => {})
     )
 
@@ -122,7 +122,7 @@ describe('Recommendations Component', () => {
   })
 
   it('handles poster fetch error gracefully', async () => {
-    ;(getMoviePoster as jest.Mock).mockRejectedValue(
+    ;(searchMoviePoster as jest.Mock).mockRejectedValue(
       new Error('Failed to fetch')
     )
 
@@ -169,7 +169,7 @@ describe('Recommendations Component', () => {
 
     // Wait for initial poster fetch
     waitFor(() => {
-      expect(getMoviePoster).toHaveBeenCalledTimes(1)
+      expect(searchMoviePoster).toHaveBeenCalledTimes(1)
     })
 
     // Click to next movie
@@ -177,7 +177,7 @@ describe('Recommendations Component', () => {
 
     // Should fetch second movie's poster
     waitFor(() => {
-      expect(getMoviePoster).toHaveBeenCalledTimes(2)
+      expect(searchMoviePoster).toHaveBeenCalledTimes(2)
     })
 
     // Click back to first movie
@@ -185,7 +185,7 @@ describe('Recommendations Component', () => {
 
     // Should not fetch first movie's poster again as it should be cached
     waitFor(() => {
-      expect(getMoviePoster).toHaveBeenCalledTimes(2)
+      expect(searchMoviePoster).toHaveBeenCalledTimes(2)
     })
   })
 })

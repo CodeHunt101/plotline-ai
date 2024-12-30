@@ -1,7 +1,7 @@
 import { MovieRecord } from '@/types/api'
-import { SUPABASE_WORKER_URL } from '../lib/config/supabase'
+import { SUPABASE_WORKER_URL } from '@/config/supabase'
 
-export async function findNearestMatch(
+export async function matchMoviesByEmbedding(
   embedding: number[]
 ): Promise<MovieRecord[]> {
   const response = await fetch(`${SUPABASE_WORKER_URL}/api/match-movies`, {

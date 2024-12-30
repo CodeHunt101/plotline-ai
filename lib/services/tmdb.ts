@@ -1,4 +1,4 @@
-export const getMoviePoster = async (movieTitle: string) => {
+export const searchMoviePoster = async (movieTitle: string) => {
   const options = {
     method: 'GET',
     headers: {

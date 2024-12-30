@@ -1,51 +1,12 @@
-import { normaliseEmbedding } from '@/lib/utils/embeddings'
-import { createEmbedding, getChatCompletion, systemMessage } from './openai'
+import { getChatCompletion, systemMessage } from './openai'
 
 // Mock the fetch function
 global.fetch = jest.fn()
-
-// Mock normaliseEmbedding function
-jest.mock('@/lib/utils/embeddings', () => ({
-  normaliseEmbedding: jest.fn((input) => input),
-}))
 
 describe('OpenAI Service', () => {
   beforeEach(() => {
     // Clear all mocks before each test
     jest.clearAllMocks()
-  })
-
-  describe('createEmbedding', () => {
-    it('should successfully create an embedding', async () => {
-      const mockEmbedding = [0.1, 0.2, 0.3]
-      const mockResponse = { embedding: mockEmbedding }
-
-      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-        json: () => Promise.resolve(mockResponse),
-      })
-
-      const result = await createEmbedding('test input')
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8787/api/embeddings',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ input: 'test input' }),
-        }
-      )
-
-      expect(normaliseEmbedding).toHaveBeenCalledWith(mockEmbedding)
-      expect(result).toEqual(mockEmbedding)
-    })
-
-    it('should throw an error when the API call fails', async () => {
-      ;(global.fetch as jest.Mock).mockRejectedValueOnce(new Error('API Error'))
-
-      await expect(createEmbedding('test input')).rejects.toThrow('API Error')
-    })
   })
 
   describe('getChatCompletion', () => {

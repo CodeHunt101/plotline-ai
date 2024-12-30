@@ -1,20 +1,5 @@
 import { ChatCompletionMessageParam } from 'openai/resources/index.mjs'
-import { OPENAI_WORKER_URL } from '@/lib/config/openai'
-import { normaliseEmbedding } from '@/lib/utils/embeddings'
-
-export async function createEmbedding(input: string) {
-  const response = await fetch(`${OPENAI_WORKER_URL}/api/embeddings`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ input }),
-  })
-
-  const data = await response.json()
-
-  return normaliseEmbedding(data.embedding)
-}
+import { OPENAI_WORKER_URL } from '@/config/openai'
 
 export const systemMessage: ChatCompletionMessageParam = {
   role: 'system',

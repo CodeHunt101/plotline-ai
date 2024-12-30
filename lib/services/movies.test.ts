@@ -1,19 +1,21 @@
-import { createEmbedding } from '@/services/openai'
-import { findNearestMatch } from '@/services/supabase'
+import { matchMoviesByEmbedding } from '@/services/supabase'
 import { getChatCompletion } from '@/services/openai'
 import { ParticipantsMovieData, MovieRecord } from '@/types/api'
-import { getMovieRecommendation } from './movie'
+import { getMovieRecommendations } from './movies'
+import { createEmbedding } from '@/services/embeddings'
 
 // Mock all dependencies
-jest.mock('@/services/openai', () => ({
+jest.mock('@/services/embeddings', () => ({
   createEmbedding: jest.fn(),
+}))
+jest.mock('@/services/openai', () => ({
   getChatCompletion: jest.fn(),
 }))
 jest.mock('@/services/supabase', () => ({
-  findNearestMatch: jest.fn(),
+  matchMoviesByEmbedding: jest.fn(),
 }))
 
-describe('getMovieRecommendation', () => {
+describe('getMovieRecommendations', () => {
   const mockMovieData: ParticipantsMovieData = {
     participantsData: [
       {
@@ -62,12 +64,12 @@ describe('getMovieRecommendation', () => {
 
   it('should successfully process movie recommendations', async () => {
     ;(createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding)
-    ;(findNearestMatch as jest.Mock).mockResolvedValue(mockMatches)
+    ;(matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches)
     ;(getChatCompletion as jest.Mock).mockResolvedValue(
       JSON.stringify(mockRecommendation)
     )
 
-    const result = await getMovieRecommendation(mockMovieData)
+    const result = await getMovieRecommendations(mockMovieData)
 
     const expectedEmbeddingInput =
       'Participant 1:\n' +
@@ -84,13 +86,13 @@ describe('getMovieRecommendation', () => {
       '\n' +
       'Time available for all participants: 3 hours'
 
-    // Normalize both strings to handle hidden spaces or line ending inconsistencies
-    const normalizeString = (str: string) => str.replace(/\s+/g, ' ').trim()
+    // normalise both strings to handle hidden spaces or line ending inconsistencies
+    const normaliseString = (str: string) => str.replace(/\s+/g, ' ').trim()
 
     expect(
-      normalizeString((createEmbedding as jest.Mock).mock.calls[0][0])
-    ).toBe(normalizeString(expectedEmbeddingInput))
-    expect(findNearestMatch).toHaveBeenCalledWith(mockEmbedding)
+      normaliseString((createEmbedding as jest.Mock).mock.calls[0][0])
+    ).toBe(normaliseString(expectedEmbeddingInput))
+    expect(matchMoviesByEmbedding).toHaveBeenCalledWith(mockEmbedding)
     expect(result).toEqual({
       match: mockMatches,
       result: mockRecommendation,
@@ -99,9 +101,9 @@ describe('getMovieRecommendation', () => {
 
   it('should return empty arrays when no matches are found', async () => {
     ;(createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding)
-    ;(findNearestMatch as jest.Mock).mockResolvedValue([])
+    ;(matchMoviesByEmbedding as jest.Mock).mockResolvedValue([])
 
-    const result = await getMovieRecommendation(mockMovieData)
+    const result = await getMovieRecommendations(mockMovieData)
 
     expect(result).toEqual({
       match: [],
@@ -114,30 +116,30 @@ describe('getMovieRecommendation', () => {
     const error = new Error('Embedding creation failed')
     ;(createEmbedding as jest.Mock).mockRejectedValue(error)
 
-    await expect(getMovieRecommendation(mockMovieData)).rejects.toThrow(
+    await expect(getMovieRecommendations(mockMovieData)).rejects.toThrow(
       'Embedding creation failed'
     )
   })
 
-  it('should handle error from findNearestMatch', async () => {
+  it('should handle error from matchMoviesByEmbedding', async () => {
     ;(createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding)
-    ;(findNearestMatch as jest.Mock).mockRejectedValue(
+    ;(matchMoviesByEmbedding as jest.Mock).mockRejectedValue(
       new Error('Database search failed')
     )
 
-    await expect(getMovieRecommendation(mockMovieData)).rejects.toThrow(
+    await expect(getMovieRecommendations(mockMovieData)).rejects.toThrow(
       'Database search failed'
     )
   })
 
   it('should handle error from getChatCompletion', async () => {
     ;(createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding)
-    ;(findNearestMatch as jest.Mock).mockResolvedValue(mockMatches)
+    ;(matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches)
     ;(getChatCompletion as jest.Mock).mockRejectedValue(
       new Error('Chat completion failed')
     )
 
-    await expect(getMovieRecommendation(mockMovieData)).rejects.toThrow(
+    await expect(getMovieRecommendations(mockMovieData)).rejects.toThrow(
       'Chat completion failed'
     )
   })

@@ -1,6 +1,5 @@
 /* eslint-disable import/no-anonymous-default-export */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// supabase-worker.ts
 import { createClient } from '@supabase/supabase-js'
 
 interface Env {
@@ -33,7 +32,7 @@ async function handleInsertMovies(
   })
 }
 
-async function handleCheckTableEmpty(supabase: any): Promise<Response> {
+async function handleisMovieEmbeddingsTableEmpty(supabase: any): Promise<Response> {
   const { data: existingData, error } = await supabase
     .from('movies_4')
     .select('id')
@@ -90,7 +89,7 @@ export default {
     try {
       switch (pathname) {
         case '/api/check-empty':
-          return await handleCheckTableEmpty(supabase)
+          return await handleisMovieEmbeddingsTableEmpty(supabase)
         case '/api/insert-movies':
           return await handleInsertMovies(request, supabase)
         case '/api/match-movies':

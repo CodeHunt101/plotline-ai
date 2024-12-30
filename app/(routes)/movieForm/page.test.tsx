@@ -1,16 +1,16 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { useRouter } from 'next/navigation'
 import { MovieContext, MovieProvider } from '@/contexts/MovieContext'
-import { getMovieRecommendation } from '@/lib/utils/movie'
 import MovieForm from './page'
 import { ParticipantData } from '@/types/movie'
+import { getMovieRecommendations } from '@/services/movies'
 
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
 }))
 
-jest.mock('@/lib/utils/movie', () => ({
-  getMovieRecommendation: jest.fn(),
+jest.mock('@/services/movies', () => ({
+  getMovieRecommendations: jest.fn(),
 }))
 
 // Mock useActionState hook to return the expected tuple
@@ -45,8 +45,7 @@ describe('MovieForm', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     ;(useRouter as jest.Mock).mockReturnValue(mockRouter)
-    ;(getMovieRecommendation as jest.Mock).mockResolvedValue(mockRecommendation)
-    // (useMovieContext as jest.Mock).mockReturnValue(mockMovieContext)
+    ;(getMovieRecommendations as jest.Mock).mockResolvedValue(mockRecommendation)
   })
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -105,7 +104,7 @@ describe('MovieForm', () => {
 
     waitFor(() => {
       expect(mockRouter.push).toHaveBeenCalledWith('/recommendations')
-      expect(getMovieRecommendation).toHaveBeenCalled()
+      expect(getMovieRecommendations).toHaveBeenCalled()
     })
   })
 
@@ -174,7 +173,7 @@ describe('MovieForm', () => {
 
     waitFor(() => {
       expect(mockRouter.push).toHaveBeenCalledWith('/recommendations')
-      expect(getMovieRecommendation).toHaveBeenCalled()
+      expect(getMovieRecommendations).toHaveBeenCalled()
     })
   })
 
@@ -250,7 +249,7 @@ describe('MovieForm', () => {
   })
 
   it('handles API errors gracefully', async () => {
-    ;(getMovieRecommendation as jest.Mock).mockRejectedValue(
+    ;(getMovieRecommendations as jest.Mock).mockRejectedValue(
       new Error('API Error')
     )
 

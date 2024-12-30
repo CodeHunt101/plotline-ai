@@ -1,89 +1,46 @@
-import { render } from '@testing-library/react'
-import ParticipantsSetup from '@/components/features/ParticipantsSetup'
-import MovieNightForm from './page'
+import { render, screen } from "@testing-library/react"
+import { initialiseEmbeddingsStorage } from "@/lib/services/embeddings"
+import MovieNightForm from "./page"
 
-// Mock the next/headers module
-jest.mock('next/headers', () => ({
-  headers: jest.fn(() => ({
-    get: jest.fn((key) => key === 'host' ? 'localhost:3000' : null)
-  }))
+jest.mock("@/components/features/ParticipantsSetup", () => jest.fn(() => <div>Participants Setup</div>))
+jest.mock("@/lib/services/embeddings", () => ({
+  initialiseEmbeddingsStorage: jest.fn()
+}))
+jest.mock("next/headers", () => ({
+  headers: jest.fn()
 }))
 
-// Mock ParticipantsSetup component
-jest.mock('@/components/features/ParticipantsSetup', () => {
-  return jest.fn(() => null)
-})
-
-// Mock global fetch
-global.fetch = jest.fn()
-
-describe('MovieNightForm', () => {
-  const originalEnv = process.env;
-  beforeEach(() => {
-    // Clear all mocks before each test
-    jest.clearAllMocks()
-
-    process.env = { ...originalEnv, NODE_ENV: 'development' };
-    
-    // Setup default successful fetch response
-    ;(global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ success: true })
-    })
-  })
-
+describe("MovieNightForm Component", () => {
   afterEach(() => {
-    process.env = originalEnv;
-  });
-
-  it('should make API call with correct parameters', async () => {
-    // Set NODE_ENV to test development environment
-    // jest.spyOn(process.env, 'NODE_ENV', 'get').mockReturnValue('development')
-    
-    await MovieNightForm()
-
-    // Verify fetch was called with correct parameters
-    expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:3000/api/embeddings-seed',
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    jest.clearAllMocks()
   })
 
-  it('should make API call with https in production', async () => {
-    // Set NODE_ENV to test production environment
-    // jest.spyOn(process.env, 'NODE_ENV', 'get').mockReturnValue('production')
-    process.env = { ...originalEnv, NODE_ENV: 'production' };
-    await MovieNightForm()
-
-    // Verify fetch was called with https
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://localhost:3000/api/embeddings-seed',
-      expect.any(Object)
-    )
-  })
-
-  it('should render ParticipantsSetup component', async () => {
-    render(await MovieNightForm())
-    
-    // Verify ParticipantsSetup was rendered
-    expect(ParticipantsSetup).toHaveBeenCalled()
-  })
-
-  it('should handle failed API responses gracefully', async () => {
-    // Mock a failed API response
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: false,
-      status: 500
-    })
+  it("renders ParticipantsSetup when initialisation is successful", async () => {
+    (initialiseEmbeddingsStorage as jest.Mock).mockResolvedValueOnce(undefined)
 
     render(await MovieNightForm())
-    
-    // Component should still render even if API call fails
-    expect(ParticipantsSetup).toHaveBeenCalled()
+
+    expect(screen.getByText("Participants Setup")).toBeInTheDocument()
+    expect(initialiseEmbeddingsStorage).toHaveBeenCalledWith(expect.any(Function))
+  })
+
+  it("renders error message when initialisation fails", async () => {
+    (initialiseEmbeddingsStorage as jest.Mock).mockRejectedValueOnce(new Error("Failed to initialise"))
+
+    render(await MovieNightForm())
+
+    expect(screen.getByText("Failed to initialise. Please try again later.")).toBeInTheDocument()
+    expect(initialiseEmbeddingsStorage).toHaveBeenCalled()
+  })
+
+  it("logs error to console when initialisation fails", async () => {
+    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {})
+    const error: Error = new Error("Initialisation error");
+    (initialiseEmbeddingsStorage as jest.Mock).mockRejectedValueOnce(error)
+
+    render(await MovieNightForm())
+
+    expect(consoleSpy).toHaveBeenCalledWith(error)
+    consoleSpy.mockRestore()
   })
 })

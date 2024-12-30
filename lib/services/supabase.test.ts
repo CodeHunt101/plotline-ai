@@ -1,8 +1,8 @@
-import { SUPABASE_WORKER_URL } from '../lib/config/supabase'
+import { SUPABASE_WORKER_URL } from '@/config/supabase'
 import { MovieRecord } from '@/types/api'
-import { findNearestMatch } from './supabase'
+import { matchMoviesByEmbedding } from './supabase'
 
-describe('findNearestMatch', () => {
+describe('matchMoviesByEmbedding', () => {
   const originalFetch = global.fetch
   const mockEmbedding = [0.1, 0.2, 0.3]
   const mockMatches: MovieRecord[] = [
@@ -35,7 +35,7 @@ describe('findNearestMatch', () => {
       json: () => Promise.resolve({ matches: mockMatches }),
     })
 
-    const result = await findNearestMatch(mockEmbedding)
+    const result = await matchMoviesByEmbedding(mockEmbedding)
 
     expect(global.fetch).toHaveBeenCalledWith(
       `${SUPABASE_WORKER_URL}/api/match-movies`,
@@ -60,7 +60,7 @@ describe('findNearestMatch', () => {
       json: () => Promise.resolve({ matches: [] }),
     })
 
-    const result = await findNearestMatch(mockEmbedding)
+    const result = await matchMoviesByEmbedding(mockEmbedding)
 
     expect(result).toEqual([])
     expect(console.log).toHaveBeenCalledWith('No matches found')
@@ -72,7 +72,7 @@ describe('findNearestMatch', () => {
       json: () => Promise.resolve({ matches: null }),
     })
 
-    const result = await findNearestMatch(mockEmbedding)
+    const result = await matchMoviesByEmbedding(mockEmbedding)
 
     expect(result).toEqual([])
     expect(console.log).toHaveBeenCalledWith('No matches found')
@@ -84,7 +84,7 @@ describe('findNearestMatch', () => {
       json: () => Promise.resolve({ error: 'Database error' }),
     })
 
-    const result = await findNearestMatch(mockEmbedding)
+    const result = await matchMoviesByEmbedding(mockEmbedding)
 
     expect(result).toEqual([])
     expect(console.log).toHaveBeenCalledWith('No matches found')
@@ -95,7 +95,7 @@ describe('findNearestMatch', () => {
       new Error('Network error')
     )
 
-    await expect(findNearestMatch(mockEmbedding)).rejects.toThrow(
+    await expect(matchMoviesByEmbedding(mockEmbedding)).rejects.toThrow(
       'Network error'
     )
   })
@@ -106,7 +106,7 @@ describe('findNearestMatch', () => {
       json: () => Promise.reject(new Error('Invalid JSON')),
     })
 
-    await expect(findNearestMatch(mockEmbedding)).rejects.toThrow(
+    await expect(matchMoviesByEmbedding(mockEmbedding)).rejects.toThrow(
       'Invalid JSON'
     )
   })

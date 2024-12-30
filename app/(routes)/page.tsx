@@ -1,28 +1,17 @@
-import { headers } from 'next/headers'
-import ParticipantsSetup from '@/components/features/ParticipantsSetup'
+import ParticipantsSetup from "@/components/features/ParticipantsSetup"
+import { initialiseEmbeddingsStorage } from "@/lib/services/embeddings"
+import { headers } from "next/headers"
 
 export default async function MovieNightForm() {
   try {
-    const headersList = await headers()
-    const host = headersList.get('host')
-    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
-    
-    const response = await fetch(`${protocol}://${host}/api/embeddings-seed`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    const data = await response.json()
-    console.log('Embeddings created successfully:', data)
+    await initialiseEmbeddingsStorage(headers)
+    return <ParticipantsSetup />
   } catch (error) {
-    console.error('Failed to create embeddings:', error)
+    console.error(error)
+    return (
+      <div className="p-4 text-red-600">
+        Failed to initialise. Please try again later.
+      </div>
+    )
   }
-  
-  return <ParticipantsSetup />
 }

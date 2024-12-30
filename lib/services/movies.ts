@@ -1,9 +1,9 @@
-import { createEmbedding } from '@/services/openai'
-import { findNearestMatch } from '@/services/supabase'
+import { matchMoviesByEmbedding } from '@/services/supabase'
 import { getChatCompletion } from '@/services/openai'
 import { MovieRecommendation, ParticipantsMovieData } from '@/types/api'
+import { createEmbedding } from '@/services/embeddings'
 
-export const getMovieRecommendation = async (
+export const getMovieRecommendations = async (
   movieData: ParticipantsMovieData
 ): Promise<MovieRecommendation> => {
   try {
@@ -23,7 +23,7 @@ export const getMovieRecommendation = async (
       `\nTime available for all participants: ${movieData.timeAvailable}`
 
     const embedding = await createEmbedding(embeddingInput)
-    const match = await findNearestMatch(embedding)
+    const match = await matchMoviesByEmbedding(embedding)
     if (match.length === 0) {
       return {
         match: [],

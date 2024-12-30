@@ -3,7 +3,7 @@
 import useMovieForm from '@/components/features/hooks/useMovieForm'
 import MovieFormFields from '@/components/features/MovieFormFields'
 import { useMovieContext } from '@/contexts/MovieContext'
-import { getMovieRecommendation } from '@/lib/utils/movie'
+import { getMovieRecommendations } from '@/lib/services/movies'
 import { MovieFormData } from '@/types/movie'
 import { useRouter } from 'next/navigation'
 import { useActionState, useState } from 'react'
@@ -54,7 +54,7 @@ const MovieForm = () => {
       return null
     }
 
-    const recommendedMovies = await getMovieRecommendation({
+    const recommendedMovies = await getMovieRecommendations({
       timeAvailable,
       participantsData: updatedParticipantsData,
     })

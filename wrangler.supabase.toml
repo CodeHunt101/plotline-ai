@@ -1,5 +1,5 @@
 name = "supabase-worker"
-main = "server/src/supabase-worker.ts"
+main = "workers/supabase-worker.ts"
 compatibility_date = "2024-01-01"
 
 [dev]
