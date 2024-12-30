@@ -6,12 +6,22 @@ import Header from '@/components/features/Header'
 
 export const metadata: Metadata = {
   title: 'PlotlineAI',
-  description:
-    "A Next.js-powered movie recommendation app that helps groups find the perfect movie for their next watch party. PlotlineAI uses AI to analyse each participant's movie preferences and suggests films that everyone will enjoy.",
+  description: "A Next.js-powered movie recommendation app that helps groups find the perfect movie for their next watch party. PlotlineAI uses AI to analyse each participant's movie preferences and suggests films that everyone will enjoy.",
   authors: [{ name: 'Harold Torres Marino' }],
   creator: 'Harold Torres Marino',
   publisher: 'Harold Torres Marino',
   metadataBase: new URL('https://plotline-ai.vercel.app'),
+  openGraph: {
+    type: 'website',
+    url: 'https://plotline-ai.vercel.app',
+    title: 'PlotlineAI',
+    description: "A Next.js-powered movie recommendation app that helps groups find the perfect movie for their next watch party. PlotlineAI uses AI to analyse each participant's movie preferences and suggests films that everyone will enjoy.",
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'PlotlineAI',
+    description: "A Next.js-powered movie recommendation app that helps groups find the perfect movie for their next watch party. PlotlineAI uses AI to analyse each participant's movie preferences and suggests films that everyone will enjoy.",
+  }
 }
 
 export default function RootLayout({
