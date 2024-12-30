@@ -156,9 +156,6 @@ npx wrangler dev --config wrangler.supabase.toml
 ```bash
 # Run tests in watch mode
 npm test
-
-# Run tests for CI
-npm run test:ci
 ```
 
 ### Deployment
@@ -181,22 +178,28 @@ npx wrangler deploy --config wrangler.supabase.toml
 
 ```
 plotline-ai/
-├── app/                    # Next.js app directory
-│   ├── (routes)/             # Application routes
-│   ├── api/                  # API routes
-│   │   └── embeddings-seed/     # Embeddings initialisation endpoint
-│   ├── globals.css           # Global styles
-│   └── layout.tsx            # Root layout
-├── components/             # React components
-│   ├── features/             # Feature-specific components
-│   └── ui/                   # Reusable UI components
-├── contexts/               # React contexts
-├── lib/                    # Utility functions and configurations
-├── public/                 # Static assets
-├── server/                 # Cloudflare Workers
-│   └── src/                  # Worker source code
-├── services/               # External service integrations
-└── types/                  # TypeScript type definitions
+├── app/                      # Next.js app directory
+│   ├── (routes)/               # Application routes
+│   │   ├── movieForm/            # Movie form page
+│   │   ├── recommendations/      # Recommendations page
+│   │   └── page.tsx              # Home page
+│   ├── api/                    # API routes
+│   ├── globals.css             # Global styles
+│   └── layout.tsx              # Root layout
+├── components/               # React components
+│   ├── features/               # Feature-specific components
+│   └── ui/                     # Reusable UI components
+├── lib/                      # Core utilities
+│   ├── config/                 # Configuration files
+│   └── services/               # Service integrations
+├── contexts/                 # React contexts
+├── constants/                # Constants and shared data
+├── public/                   # Static assets
+├── types/                    # TypeScript type definitions
+├── workers/                  # Cloudflare Workers
+    ├── openai-worker.ts
+    └── supabase-worker.ts
+
 ```
 
 ## ⚡ Cloudflare Workers Architecture

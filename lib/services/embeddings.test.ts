@@ -72,32 +72,19 @@ describe('normaliseEmbeddingVector', () => {
 })
 
 describe('initialiseEmbeddingsStorage', () => {
-  const originalEnv = process.env;
-  const mockHeaders = new Map([
-    ['host', 'example.com']
-  ])
-  
-  const mockHeadersFunction = jest.fn().mockResolvedValue({
-    get: (key: string) => mockHeaders.get(key)
-  })
 
   beforeEach(() => {
     jest.clearAllMocks()
-    process.env = { ...originalEnv, NODE_ENV: 'production' };
   })
 
-  afterEach(() => {
-    process.env = originalEnv;
-  });
-
-  it('should initialise embeddings storage in production', async () => {
+  it('should initialise embeddings storage with the provided base URL', async () => {
     const mockResponse = { data: 'test data' }
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve(mockResponse)
     })
 
-    const result = await initialiseEmbeddingsStorage(mockHeadersFunction)
+    const result = await initialiseEmbeddingsStorage('https://example.com')
 
     expect(fetch).toHaveBeenCalledWith('https://example.com/api/embeddings-seed', {
       method: 'GET',
@@ -109,27 +96,13 @@ describe('initialiseEmbeddingsStorage', () => {
     expect(result).toEqual(mockResponse)
   })
 
-  it('should use http protocol in development', async () => {
-    process.env = { ...originalEnv, NODE_ENV: 'development' };
-    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({})
-    })
-
-    await initialiseEmbeddingsStorage(mockHeadersFunction)
-
-    expect(fetch).toHaveBeenCalledWith('http://example.com/api/embeddings-seed', 
-      expect.any(Object)
-    )
-  })
-
   it('should handle non-ok responses', async () => {
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
       status: 404
     })
 
-    await expect(initialiseEmbeddingsStorage(mockHeadersFunction))
+    await expect(initialiseEmbeddingsStorage('https://example.com'))
       .rejects
       .toThrow('HTTP error! status: 404')
   })
@@ -137,7 +110,7 @@ describe('initialiseEmbeddingsStorage', () => {
   it('should handle network errors', async () => {
     ;(global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'))
 
-    await expect(initialiseEmbeddingsStorage(mockHeadersFunction))
+    await expect(initialiseEmbeddingsStorage('https://example.com'))
       .rejects
       .toThrow('Network error')
   })

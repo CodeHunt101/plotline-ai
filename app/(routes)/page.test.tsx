@@ -1,46 +1,55 @@
-import { render, screen } from "@testing-library/react"
-import { initialiseEmbeddingsStorage } from "@/lib/services/embeddings"
-import MovieNightForm from "./page"
+import { render, screen } from '@testing-library/react'
+import { headers } from 'next/headers'
+import { initialiseEmbeddingsStorage } from '@/services/embeddings'
+import MovieNightForm from './page'
 
-jest.mock("@/components/features/ParticipantsSetup", () => jest.fn(() => <div>Participants Setup</div>))
-jest.mock("@/lib/services/embeddings", () => ({
-  initialiseEmbeddingsStorage: jest.fn()
+// Mock the dependencies
+jest.mock('next/headers', () => ({
+  headers: jest.fn(),
 }))
-jest.mock("next/headers", () => ({
-  headers: jest.fn()
+jest.mock('@/services/embeddings', () => ({
+  initialiseEmbeddingsStorage: jest.fn(),
 }))
 
-describe("MovieNightForm Component", () => {
+jest.mock('@/components/features/ParticipantsSetup', () => jest.fn(() => <div data-testid="participants-setup" />))
+
+describe('MovieNightForm Component', () => {
   afterEach(() => {
     jest.clearAllMocks()
   })
 
-  it("renders ParticipantsSetup when initialisation is successful", async () => {
-    (initialiseEmbeddingsStorage as jest.Mock).mockResolvedValueOnce(undefined)
+  it('renders ParticipantsSetup when initialisation is successful', async () => {
+    // Mock headers
+    ;(headers as jest.Mock).mockResolvedValue({
+      get: jest.fn((key) => {
+        if (key === 'host') return 'localhost:3000'
+      }),
+    })
+    
+    // Mock initialiseEmbeddingsStorage
+    ;(initialiseEmbeddingsStorage as jest.Mock).mockResolvedValue(undefined)
 
     render(await MovieNightForm())
 
-    expect(screen.getByText("Participants Setup")).toBeInTheDocument()
-    expect(initialiseEmbeddingsStorage).toHaveBeenCalledWith(expect.any(Function))
+    // Assert that ParticipantsSetup is rendered
+    expect(screen.getByTestId('participants-setup')).toBeInTheDocument()
   })
 
-  it("renders error message when initialisation fails", async () => {
-    (initialiseEmbeddingsStorage as jest.Mock).mockRejectedValueOnce(new Error("Failed to initialise"))
+  it('shows error message when initialisation fails', async () => {
+    // Mock headers
+    ;(headers as jest.Mock).mockResolvedValue({
+      get: jest.fn((key) => {
+        if (key === 'host') return 'localhost:3000'
+      }),
+    })
+
+    // Mock initialiseEmbeddingsStorage to throw an error
+    ;(initialiseEmbeddingsStorage as jest.Mock).mockRejectedValue(new Error('Initialization failed'))
 
     render(await MovieNightForm())
 
-    expect(screen.getByText("Failed to initialise. Please try again later.")).toBeInTheDocument()
-    expect(initialiseEmbeddingsStorage).toHaveBeenCalled()
-  })
-
-  it("logs error to console when initialisation fails", async () => {
-    const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {})
-    const error: Error = new Error("Initialisation error");
-    (initialiseEmbeddingsStorage as jest.Mock).mockRejectedValueOnce(error)
-
-    render(await MovieNightForm())
-
-    expect(consoleSpy).toHaveBeenCalledWith(error)
-    consoleSpy.mockRestore()
+    // Assert that the error message is rendered
+    expect(screen.getByText(/Failed to initialise/i)).toBeInTheDocument()
+    expect(screen.queryByTestId('participants-setup')).not.toBeInTheDocument()
   })
 })

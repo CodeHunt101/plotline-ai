@@ -1,5 +1,4 @@
 import { OPENAI_WORKER_URL } from '@/config/openai'
-import { ReadonlyHeaders } from 'next/dist/server/web/spec-extension/adapters/headers'
 
 export async function createEmbedding(input: string) {
   const response = await fetch(`${OPENAI_WORKER_URL}/api/embeddings`, {
@@ -25,13 +24,9 @@ export function normaliseEmbeddingVector(embedding: number[]) {
   return embedding.map((val) => val / magnitude)
 }
 
-export async function initialiseEmbeddingsStorage(headers: ()=>Promise<ReadonlyHeaders>) {
-  const headersList = await headers()
-  const host = headersList.get('host')
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
-  
+export async function initialiseEmbeddingsStorage(baseUrl: string) {
   try {
-    const response = await fetch(`${protocol}://${host}/api/embeddings-seed`, {
+    const response = await fetch(`${baseUrl}/api/embeddings-seed`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

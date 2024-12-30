@@ -4,7 +4,12 @@ import { headers } from "next/headers"
 
 export default async function MovieNightForm() {
   try {
-    await initialiseEmbeddingsStorage(headers)
+    const headersList = await headers()
+    const host = headersList.get('host')
+    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
+    
+    // Pass the constructed URL base instead of the headers function
+    await initialiseEmbeddingsStorage(`${protocol}://${host}`)
     return <ParticipantsSetup />
   } catch (error) {
     console.error(error)
