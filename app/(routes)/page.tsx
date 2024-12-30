@@ -1,16 +1,15 @@
 import ParticipantsSetup from "@/components/features/ParticipantsSetup"
 import { initialiseEmbeddingsStorage } from "@/lib/services/embeddings"
+import { getBaseUrl } from "@/lib/utils/urls"
 import { headers } from "next/headers"
+
+export const dynamic = 'force-dynamic'
 
 export default async function MovieNightForm() {
   try {
-    // Get headers information first, before any async operations
     const headersList = await headers()
-    const host = headersList.get('host')
-    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https'
-    const baseUrl = `${protocol}://${host}`
+    const baseUrl = getBaseUrl(headersList)
     
-    // Now use the constructed baseUrl in the async operation
     await initialiseEmbeddingsStorage(baseUrl)
     return <ParticipantsSetup />
   } catch (error) {

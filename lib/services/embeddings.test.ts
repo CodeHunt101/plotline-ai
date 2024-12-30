@@ -91,7 +91,6 @@ describe('initialiseEmbeddingsStorage', () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      cache: 'force-cache'
     })
     expect(result).toEqual(mockResponse)
   })
