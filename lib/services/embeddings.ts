@@ -31,7 +31,7 @@ export async function initialiseEmbeddingsStorage(baseUrl: string) {
       headers: {
         'Content-Type': 'application/json',
       },
-      cache: 'force-cache',
+      // cache: 'force-cache',
     })
 
     if (!response.ok) {
