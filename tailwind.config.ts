@@ -36,22 +36,9 @@ export default {
       {
         mytheme: {
           primary: '#51E08A',
-
           secondary: '#FFFFFF',
-
-          // "accent": "#00ffff",
-
-          // "neutral": "#ff00ff",
-
           'base-100': '#000C36',
-
-          "info": "#3B4877",
-
-          // "success": "#00ff00",
-
-          // "warning": "#00ff00",
-
-          // "error": "#ff0000",
+          info: '#3B4877',
         },
       },
     ],

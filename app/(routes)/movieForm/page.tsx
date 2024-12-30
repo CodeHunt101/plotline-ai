@@ -80,32 +80,34 @@ const MovieForm = () => {
 
   return (
     <>
-      <h2 className="text-2xl mb-4 text-center">
-        Person #{currentParticipant}
-      </h2>
       {isPending ? (
         <div className="flex flex-col items-center justify-center  h-[35rem] gap-5">
           <div className="text-3xl">Loading movies...</div>
           <div className="loading loading-bars loading-lg"></div>
         </div>
       ) : (
-        <form action={submitAction} className="space-y-6">
-          <MovieFormFields
-            formData={formData}
-            validationErrors={validationErrors}
-            handleTextChange={handleTextChange}
-            handleTypeChange={handleTypeChange}
-          />
+        <>
+          <h2 className="text-2xl mb-4 text-center">
+            Person #{currentParticipant}
+          </h2>
+          <form action={submitAction} className="space-y-6">
+            <MovieFormFields
+              formData={formData}
+              validationErrors={validationErrors}
+              handleTextChange={handleTextChange}
+              handleTypeChange={handleTypeChange}
+            />
 
-          <button
-            type="submit"
-            className="btn btn-primary block w-full text-3xl"
-          >
-            {currentParticipant === totalParticipants ? 'Get Movie' : 'Next'}
-          </button>
+            <button
+              type="submit"
+              className="btn btn-primary block w-full text-3xl"
+            >
+              {currentParticipant === totalParticipants ? 'Get Movie' : 'Next'}
+            </button>
 
-          {error && <p className="text-red-500 text-center">{error}</p>}
-        </form>
+            {error && <p className="text-red-500 text-center">{error}</p>}
+          </form>
+        </>
       )}
     </>
   )
