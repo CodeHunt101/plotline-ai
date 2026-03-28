@@ -13,6 +13,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type",
 } as const;
 
+const MATCH_THRESHOLD = 0.25;
+const MATCH_COUNT = 10;
+
 async function handleInsertMovies(request: Request, supabase: any): Promise<Response> {
   const { batch } = await request.json();
   const { error } = await supabase.from("movies_4").insert(batch);
@@ -48,8 +51,8 @@ async function handleMatchMovies(request: Request, supabase: any): Promise<Respo
   const { embedding } = await request.json();
   const { data, error } = await supabase.rpc("match_movies_4", {
     query_embedding: embedding,
-    match_threshold: 0.3,
-    match_count: 10,
+    match_threshold: MATCH_THRESHOLD,
+    match_count: MATCH_COUNT,
   });
 
   if (error) {

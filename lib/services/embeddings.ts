@@ -1,7 +1,5 @@
-import { OPENAI_WORKER_URL } from "@/config/openai";
-
 export async function createEmbedding(input: string) {
-  const response = await fetch(`${OPENAI_WORKER_URL}/api/embeddings`, {
+  const response = await fetch("/api/embeddings", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

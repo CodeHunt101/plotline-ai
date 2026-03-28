@@ -1,7 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { SUPABASE_WORKER_URL } from "@/config/supabase";
-import { OPENAI_WORKER_URL } from "@/config/openai";
 import { seedMovieEmbeddings, splitMovieContentIntoChunks } from "./seed";
 
 // Mock external dependencies
@@ -31,13 +30,26 @@ jest.mock("@/services/embeddings", () => ({
   normaliseEmbeddingVector: jest.fn((arr) => arr),
 }));
 
-// Mock fetch globally
+jest.mock("ai", () => ({
+  embed: jest.fn(),
+}));
+
+jest.mock("@/config/ai", () => ({
+  getEmbeddingModel: jest.fn(() => "mock-model"),
+  getEmbeddingProviderOptions: jest.fn(() => ({
+    google: { outputDimensionality: 768 },
+  })),
+}));
+
+// Mock fetch globally for Supabase worker calls
 global.fetch = jest.fn();
+
+import { embed } from "ai";
 
 describe("splitMovieContentIntoChunks", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (path.join as jest.Mock).mockImplementation((...args) => args.join("/"));
+    (path.join as jest.Mock).mockImplementation((...args: string[]) => args.join("/"));
   });
 
   it("should successfully split content into chunks", async () => {
@@ -94,22 +106,17 @@ describe("seedMovieEmbeddings", () => {
       json: () => Promise.resolve({ isEmpty: true }),
     });
 
-    // Mock embedding creation
+    // Mock embed() for both chunks
     const mockEmbedding = [1, 2, 3];
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ embedding: mockEmbedding }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ embedding: mockEmbedding }),
-      })
-      // Mock batch storage
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ success: true }),
-      });
+    (embed as jest.Mock)
+      .mockResolvedValueOnce({ embedding: mockEmbedding })
+      .mockResolvedValueOnce({ embedding: mockEmbedding });
+
+    // Mock batch storage
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    });
 
     const result = await seedMovieEmbeddings();
 
@@ -119,8 +126,8 @@ describe("seedMovieEmbeddings", () => {
       count: 2,
     });
 
-    // Verify embedding creation calls
-    expect(fetch).toHaveBeenCalledWith(`${OPENAI_WORKER_URL}/api/embeddings`, expect.any(Object));
+    // Verify embed was called for each chunk
+    expect(embed).toHaveBeenCalledTimes(2);
 
     // Verify batch storage call
     expect(fetch).toHaveBeenCalledWith(
@@ -145,14 +152,11 @@ describe("seedMovieEmbeddings", () => {
       json: () => Promise.resolve({ isEmpty: true }),
     });
 
-    // Mock embedding creation error
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-    });
+    // Mock embed() throwing for one chunk
+    (embed as jest.Mock).mockRejectedValueOnce(new Error("Embedding API error"));
 
     await expect(seedMovieEmbeddings()).rejects.toThrow(
-      "Failed to get embeddings for chunk 0: 500"
+      "Failed to get embeddings for chunk 0: Embedding API error"
     );
   });
 
@@ -162,16 +166,11 @@ describe("seedMovieEmbeddings", () => {
       ok: true,
       json: () => Promise.resolve({ isEmpty: true }),
     });
-    // Mock successful embedding creation for BOTH chunks
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ embedding: [1, 2, 3] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ embedding: [1, 2, 3] }),
-      });
+
+    // Mock successful embedding creation for both chunks
+    (embed as jest.Mock)
+      .mockResolvedValueOnce({ embedding: [1, 2, 3] })
+      .mockResolvedValueOnce({ embedding: [1, 2, 3] });
 
     // Mock batch storage error
     (global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -189,18 +188,12 @@ describe("seedMovieEmbeddings", () => {
       json: () => Promise.resolve({ isEmpty: true }),
     });
 
-    // Mock successful embedding creation for BOTH chunks
-    (global.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ embedding: [1, 2, 3] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ embedding: [1, 2, 3] }),
-      });
+    // Mock successful embedding creation for both chunks
+    (embed as jest.Mock)
+      .mockResolvedValueOnce({ embedding: [1, 2, 3] })
+      .mockResolvedValueOnce({ embedding: [1, 2, 3] });
 
-    // Mock batch storage API error
+    // Mock batch storage API error response
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ error: "Database error" }),

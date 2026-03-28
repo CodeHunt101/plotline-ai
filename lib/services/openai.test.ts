@@ -1,3 +1,4 @@
+import type { ModelMessage } from "ai";
 import { getChatCompletion, systemMessage } from "./openai";
 
 // Mock the fetch function
@@ -7,6 +8,15 @@ describe("OpenAI Service", () => {
   beforeEach(() => {
     // Clear all mocks before each test
     jest.clearAllMocks();
+  });
+
+  describe("systemMessage", () => {
+    it("allows returning fewer than four recommendations when retrieval is sparse", () => {
+      expect(systemMessage.content).toContain("Recommend 1-10 movies");
+      expect(systemMessage.content).toContain(
+        "If fewer than 4 strong matches are available, return the available matches instead of an empty list."
+      );
+    });
   });
 
   describe("getChatCompletion", () => {
@@ -21,12 +31,13 @@ describe("OpenAI Service", () => {
 
     it("should successfully get chat completion", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
         json: () => Promise.resolve(mockResponse),
       });
 
       const result = await getChatCompletion(mockText, mockQuery);
 
-      expect(global.fetch).toHaveBeenCalledWith("http://localhost:8787/api/movies", {
+      expect(global.fetch).toHaveBeenCalledWith("/api/movies", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -46,15 +57,16 @@ describe("OpenAI Service", () => {
     });
 
     it("should include previous messages in the request", async () => {
-      const previousMessages = [{ role: "user" as const, content: "previous message" }];
+      const previousMessages: ModelMessage[] = [{ role: "user", content: "previous message" }];
 
       (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
         json: () => Promise.resolve(mockResponse),
       });
 
       await getChatCompletion(mockText, mockQuery, previousMessages);
 
-      expect(global.fetch).toHaveBeenCalledWith("http://localhost:8787/api/movies", {
+      expect(global.fetch).toHaveBeenCalledWith("/api/movies", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -76,6 +88,28 @@ describe("OpenAI Service", () => {
       (global.fetch as jest.Mock).mockRejectedValueOnce(new Error("API Error"));
 
       await expect(getChatCompletion(mockText, mockQuery)).rejects.toThrow("API Error");
+    });
+
+    it("should throw the API error message when /api/movies returns a failure response", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ error: "Movie recommendations response was not valid JSON" }),
+      });
+
+      await expect(getChatCompletion(mockText, mockQuery)).rejects.toThrow(
+        "Movie recommendations response was not valid JSON"
+      );
+    });
+
+    it("should throw when /api/movies succeeds without content", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({}),
+      });
+
+      await expect(getChatCompletion(mockText, mockQuery)).rejects.toThrow(
+        "Movie recommendations response was empty"
+      );
     });
   });
 });

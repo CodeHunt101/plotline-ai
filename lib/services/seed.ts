@@ -1,11 +1,12 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { embed } from "ai";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { normaliseEmbeddingVector } from "@/services/embeddings";
+import { getEmbeddingModel, getEmbeddingProviderOptions } from "@/config/ai";
 import { SUPABASE_WORKER_URL } from "@/config/supabase";
-import { OPENAI_WORKER_URL } from "@/config/openai";
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 10;
 const CHUNK_SIZE = 550;
 const CHUNK_OVERLAP = 75;
 
@@ -18,24 +19,22 @@ async function isMovieEmbeddingsTableEmpty() {
 }
 
 async function createChunkEmbedding(chunk: { pageContent: string }, index: number) {
-  const response = await fetch(`${OPENAI_WORKER_URL}/api/embeddings`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      input: chunk.pageContent,
-      dimensions: 1536,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to get embeddings for chunk ${index}: ${response.status}`);
+  try {
+    const providerOptions = getEmbeddingProviderOptions();
+    const { embedding } = await embed({
+      model: getEmbeddingModel(),
+      value: chunk.pageContent,
+      ...(providerOptions ? { providerOptions } : {}),
+    });
+    return {
+      content: chunk.pageContent,
+      embedding: normaliseEmbeddingVector(embedding),
+    };
+  } catch (error) {
+    throw new Error(
+      `Failed to get embeddings for chunk ${index}: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
-
-  const { embedding } = await response.json();
-  return {
-    content: chunk.pageContent,
-    embedding: normaliseEmbeddingVector(embedding),
-  };
 }
 
 async function storeMovieEmbeddingsBatch(batch: unknown[]) {

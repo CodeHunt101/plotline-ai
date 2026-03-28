@@ -2,6 +2,11 @@ import { matchMoviesByEmbedding } from "@/services/supabase";
 import { getChatCompletion } from "@/services/openai";
 import { MovieRecommendation, ParticipantsMovieData } from "@/types/api";
 import { createEmbedding } from "@/services/embeddings";
+import {
+  emptyMovieRecommendations,
+  fallbackMovieRecommendations,
+  parseMovieRecommendationsResponse,
+} from "@/lib/utils/recommendations";
 
 export const getMovieRecommendations = async (
   movieData: ParticipantsMovieData
@@ -27,7 +32,7 @@ export const getMovieRecommendations = async (
     if (match.length === 0) {
       return {
         match: [],
-        result: { recommendedMovies: [] },
+        result: emptyMovieRecommendations(),
       };
     }
 
@@ -46,13 +51,26 @@ export const getMovieRecommendations = async (
       .map((movie, index) => `Movie ${index + 1}: ${movie.content}`)
       .join("\n\n");
 
-    const result =
-      (await getChatCompletion(movieList, embeddingInput)) ||
-      "Sorry, I could not find any relevant information about that.";
+    const result = await getChatCompletion(movieList, embeddingInput);
+    const fallbackResult = fallbackMovieRecommendations(separatedMovies);
+    let parsedResult = emptyMovieRecommendations();
+
+    try {
+      parsedResult = parseMovieRecommendationsResponse(result);
+    } catch (error) {
+      if (fallbackResult.recommendedMovies.length > 0) {
+        return {
+          match: separatedMovies,
+          result: fallbackResult,
+        };
+      }
+
+      throw error;
+    }
 
     return {
       match: separatedMovies, // Return the separated movies instead of the original match
-      result: JSON.parse(result),
+      result: parsedResult.recommendedMovies.length > 0 ? parsedResult : fallbackResult,
     };
   } catch (error) {
     if (error instanceof Error) {

@@ -1,3 +1,0 @@
-name = "openai-worker"
-main = "workers/openai-worker.ts"
-compatibility_date = "2024-01-01"

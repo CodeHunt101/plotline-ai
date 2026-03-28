@@ -3,7 +3,6 @@ import {
   normaliseEmbeddingVector,
   initialiseEmbeddingsStorage,
 } from "./embeddings";
-import { OPENAI_WORKER_URL } from "@/config/openai";
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -26,7 +25,7 @@ describe("createEmbedding", () => {
     const result = await createEmbedding("test input");
 
     // Verify fetch was called correctly
-    expect(fetch).toHaveBeenCalledWith(`${OPENAI_WORKER_URL}/api/embeddings`, {
+    expect(fetch).toHaveBeenCalledWith("/api/embeddings", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

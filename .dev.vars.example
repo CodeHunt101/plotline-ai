@@ -1,0 +1,11 @@
+# Cloudflare Worker secrets for the Supabase worker (wrangler.supabase.toml)
+# Copy this file to .dev.vars and fill in your values.
+# Never commit .dev.vars — it is gitignored.
+
+# Supabase project URL
+# Found in your Supabase dashboard under Project Settings > Data API
+SUPABASE_URL=
+
+# Supabase anon/service key
+# Found in your Supabase dashboard under Project Settings > Data API
+SUPABASE_API_KEY=

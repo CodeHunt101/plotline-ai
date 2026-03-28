@@ -58,6 +58,21 @@ describe("getMovieRecommendations", () => {
     ],
   };
 
+  const fallbackRecommendation = {
+    recommendedMovies: [
+      {
+        name: "Inception",
+        releaseYear: "2010",
+        synopsis: "A mind-bending thriller. IMDB: 8.8",
+      },
+      {
+        name: "The Dark Knight",
+        releaseYear: "2008",
+        synopsis: "A superhero epic. IMDB: 9.0",
+      },
+    ],
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -91,6 +106,21 @@ describe("getMovieRecommendations", () => {
       normaliseString(expectedEmbeddingInput)
     );
     expect(matchMoviesByEmbedding).toHaveBeenCalledWith(mockEmbedding);
+    expect(result).toEqual({
+      match: mockMatches,
+      result: mockRecommendation,
+    });
+  });
+
+  it("should parse fenced JSON recommendations", async () => {
+    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
+    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
+    (getChatCompletion as jest.Mock).mockResolvedValue(
+      `\`\`\`json\n${JSON.stringify(mockRecommendation, null, 2)}\n\`\`\``
+    );
+
+    const result = await getMovieRecommendations(mockMovieData);
+
     expect(result).toEqual({
       match: mockMatches,
       result: mockRecommendation,
@@ -139,8 +169,48 @@ describe("getMovieRecommendations", () => {
     (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
     (getChatCompletion as jest.Mock).mockResolvedValue(null);
 
-    // The fallback string is not valid JSON, so JSON.parse throws and the error propagates
-    await expect(getMovieRecommendations(mockMovieData)).rejects.toThrow();
+    await expect(getMovieRecommendations(mockMovieData)).resolves.toEqual({
+      match: mockMatches,
+      result: fallbackRecommendation,
+    });
+  });
+
+  it("should fall back to retrieval matches when the model returns an empty list", async () => {
+    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
+    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
+    (getChatCompletion as jest.Mock).mockResolvedValue('{"recommendedMovies":[]}');
+
+    await expect(getMovieRecommendations(mockMovieData)).resolves.toEqual({
+      match: mockMatches,
+      result: fallbackRecommendation,
+    });
+  });
+
+  it("should fall back to retrieval matches for invalid recommendation JSON", async () => {
+    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
+    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
+    (getChatCompletion as jest.Mock).mockResolvedValue("not valid json");
+
+    await expect(getMovieRecommendations(mockMovieData)).resolves.toEqual({
+      match: mockMatches,
+      result: fallbackRecommendation,
+    });
+  });
+
+  it("should re-throw invalid recommendation JSON when fallback matches are unusable", async () => {
+    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
+    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue([
+      {
+        id: 1,
+        content: "   ",
+        similarity: 0.9,
+      },
+    ]);
+    (getChatCompletion as jest.Mock).mockResolvedValue("not valid json");
+
+    await expect(getMovieRecommendations(mockMovieData)).rejects.toThrow(
+      "Movie recommendations response was not valid JSON"
+    );
   });
 
   it("should re-throw unknown errors as a generic Error", async () => {
