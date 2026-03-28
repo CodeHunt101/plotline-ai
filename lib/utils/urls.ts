@@ -6,20 +6,20 @@
  * @returns The base URL string
  */
 export function getBaseUrl(headers: Headers): string {
-  const host = headers.get('host')
+  const host = headers.get("host");
 
   // For npm run build / preview on local
-  if (process.env.NODE_ENV === 'production' && host?.includes('localhost')) {
-    return `http://${host}`
+  if (process.env.NODE_ENV === "production" && host?.includes("localhost")) {
+    return `http://${host}`;
   }
 
   // For development environment
-  if (process.env.NODE_ENV === 'development') {
-    return `http://${host}`
+  if (process.env.NODE_ENV === "development") {
+    return `http://${host}`;
   }
 
   // For production environment
-  return `https://${host}`
+  return `https://${host}`;
 }
 
 /**
@@ -29,5 +29,5 @@ export function getBaseUrl(headers: Headers): string {
  * @returns The complete URL
  */
 export function createFullUrl(baseUrl: string, path?: string): string {
-  return path ? `${baseUrl}${path}` : baseUrl
+  return path ? `${baseUrl}${path}` : baseUrl;
 }

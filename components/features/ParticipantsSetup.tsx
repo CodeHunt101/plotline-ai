@@ -1,28 +1,24 @@
-'use client'
+"use client";
 
-import { useMovieContext } from '@/contexts/MovieContext'
-import { useRouter } from 'next/navigation'
+import { useMovieContext } from "@/contexts/MovieContext";
+import { useRouter } from "next/navigation";
 
-const MAX_PARTICIPANTS = 10
+const MAX_PARTICIPANTS = 10;
 
 const ParticipantsSetup = () => {
-  const router = useRouter()
+  const router = useRouter();
 
-  const {
-    timeAvailable,
-    setGroupTimeAvailable,
-    totalParticipants,
-    setTotalParticipants,
-  } = useMovieContext()
+  const { timeAvailable, setGroupTimeAvailable, totalParticipants, setTotalParticipants } =
+    useMovieContext();
 
   return (
     <div className="text-center w-full">
-      <label 
-          htmlFor="participants-range"
-          className="label-text text-secondary text-start text-lg mb-2 block"
-        >
-          How many people?
-        </label>
+      <label
+        htmlFor="participants-range"
+        className="label-text text-secondary text-start text-lg mb-2 block"
+      >
+        How many people?
+      </label>
       <div className="mb-6">
         <input
           id="participants-range"
@@ -52,13 +48,13 @@ const ParticipantsSetup = () => {
       </div>
 
       <button
-        onClick={() => router.push('/movieForm')}
+        onClick={() => router.push("/movieForm")}
         className="btn btn-primary block mx-auto w-full text-3xl"
       >
         Start
       </button>
     </div>
-  )
-}
+  );
+};
 
-export default ParticipantsSetup
+export default ParticipantsSetup;

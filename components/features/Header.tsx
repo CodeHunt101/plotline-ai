@@ -1,5 +1,5 @@
-import Logo from "./Logo"
-import Title from "./Title"
+import Logo from "./Logo";
+import Title from "./Title";
 
 const Header = () => {
   return (
@@ -7,7 +7,7 @@ const Header = () => {
       <Logo />
       <Title />
     </header>
-  )
-}
+  );
+};
 
-export default Header
+export default Header;

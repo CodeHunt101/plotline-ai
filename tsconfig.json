@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -17,42 +13,22 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "types": [
-      "@testing-library/jest-dom"
-    ],
+    "types": ["@testing-library/jest-dom"],
     "plugins": [
       {
         "name": "next"
       }
     ],
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@/page/*": [
-        "./app/*/page"
-      ],
-      "@/components/*": [
-        "./components/*"
-      ],
-      "@/config/*": [
-        "./lib/config/*"
-      ],
-      "@/services/*": [
-        "./lib/services/*"
-      ],
-      "@/contexts/*": [
-        "./contexts/*"
-      ],
-      "@/constants/*": [
-        "./constants/*"
-      ],
-      "@/types/*": [
-        "./types/*"
-      ],
-      "@/public/*": [
-        "./public/*"
-      ]
+      "@/*": ["./*"],
+      "@/page/*": ["./app/*/page"],
+      "@/components/*": ["./components/*"],
+      "@/config/*": ["./lib/config/*"],
+      "@/services/*": ["./lib/services/*"],
+      "@/contexts/*": ["./contexts/*"],
+      "@/constants/*": ["./constants/*"],
+      "@/types/*": ["./types/*"],
+      "@/public/*": ["./public/*"]
     }
   },
   "include": [
@@ -62,7 +38,5 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

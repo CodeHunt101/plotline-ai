@@ -1,73 +1,70 @@
-'use client'
+"use client";
 
-import { useMovieContext } from '@/contexts/MovieContext'
-import { useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
-import Image from 'next/image'
-import { searchMoviePoster } from '@/lib/services/tmdb'
+import { useMovieContext } from "@/contexts/MovieContext";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import { searchMoviePoster } from "@/lib/services/tmdb";
 
 export default function Recommendations() {
-  const { recommendations, setGroupTimeAvailable } = useMovieContext()
-  const router = useRouter()
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [posterUrls, setPosterUrls] = useState<{ [key: string]: string }>({})
-  const [isLoadingPoster, setIsLoadingPoster] = useState(true)
+  const { recommendations, setGroupTimeAvailable } = useMovieContext();
+  const router = useRouter();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [posterUrls, setPosterUrls] = useState<{ [key: string]: string }>({});
+  const [isLoadingPoster, setIsLoadingPoster] = useState(true);
 
   useEffect(() => {
     if (!recommendations) {
-      return router.push('/')
+      return router.push("/");
     }
-  }, [recommendations, router])
+  }, [recommendations, router]);
 
   useEffect(() => {
     const fetchPoster = async () => {
-      const currentMovie =
-        recommendations?.result.recommendedMovies[currentIndex]
-      if (!currentMovie?.name) return
+      const currentMovie = recommendations?.result.recommendedMovies[currentIndex];
+      if (!currentMovie?.name) return;
 
       // Check if we already have the poster URL cached
       if (posterUrls[currentMovie.name]) {
-        setIsLoadingPoster(false)
-        return
+        setIsLoadingPoster(false);
+        return;
       }
 
-      setIsLoadingPoster(true)
+      setIsLoadingPoster(true);
       try {
-        const url = await searchMoviePoster(currentMovie.name)
+        const url = await searchMoviePoster(currentMovie.name);
         setPosterUrls((prev) => ({
           ...prev,
-          [currentMovie.name]: url || '',
-        }))
+          [currentMovie.name]: url || "",
+        }));
       } catch (error) {
-        console.error('Error fetching poster:', error)
+        console.error("Error fetching poster:", error);
         setPosterUrls((prev) => ({
           ...prev,
-          [currentMovie.name]: '',
-        }))
+          [currentMovie.name]: "",
+        }));
       } finally {
-        setIsLoadingPoster(false)
+        setIsLoadingPoster(false);
       }
-    }
+    };
 
-    fetchPoster()
-  }, [currentIndex, recommendations, posterUrls])
+    fetchPoster();
+  }, [currentIndex, recommendations, posterUrls]);
 
   if (!recommendations) {
-    return null
+    return null;
   }
 
   const handleNextMovie = () => {
     if (currentIndex === recommendations.result.recommendedMovies.length - 1) {
-      setCurrentIndex(0)
+      setCurrentIndex(0);
     } else {
-      setCurrentIndex(currentIndex + 1)
+      setCurrentIndex(currentIndex + 1);
     }
-  }
+  };
 
-  const currentMovie = recommendations.result.recommendedMovies[currentIndex]
-  const currentPosterUrl = currentMovie?.name
-    ? posterUrls[currentMovie.name]
-    : ''
+  const currentMovie = recommendations.result.recommendedMovies[currentIndex];
+  const currentPosterUrl = currentMovie?.name ? posterUrls[currentMovie.name] : "";
 
   return (
     <>
@@ -97,13 +94,10 @@ export default function Recommendations() {
               ) : null}
             </>
           )}
-          <div className="text-lg mt-5 text-justify">
-            {currentMovie?.synopsis}
-          </div>
+          <div className="text-lg mt-5 text-justify">{currentMovie?.synopsis}</div>
 
           <div className="mt-4 text-sm text-gray-500">
-            Movie {currentIndex + 1} of{' '}
-            {recommendations.result.recommendedMovies.length}
+            Movie {currentIndex + 1} of {recommendations.result.recommendedMovies.length}
           </div>
           <button
             onClick={handleNextMovie}
@@ -117,13 +111,13 @@ export default function Recommendations() {
       )}
       <button
         onClick={() => {
-          setGroupTimeAvailable('')
-          router.push('/')
+          setGroupTimeAvailable("");
+          router.push("/");
         }}
         className="btn btn-secondary block my-3 mx-auto text-xl w-full"
       >
         Start Over
       </button>
     </>
-  )
+  );
 }

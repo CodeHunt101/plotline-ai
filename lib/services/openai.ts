@@ -1,8 +1,8 @@
-import { ChatCompletionMessageParam } from 'openai/resources/index.mjs'
-import { OPENAI_WORKER_URL } from '@/config/openai'
+import { ChatCompletionMessageParam } from "openai/resources/index.mjs";
+import { OPENAI_WORKER_URL } from "@/config/openai";
 
 export const systemMessage: ChatCompletionMessageParam = {
-  role: 'system',
+  role: "system",
   content: `You are a movie expert. IMPORTANT: Recommend 4-10 movies from the provided Movie List Context that match User Preferences.
 
 Rules:
@@ -35,7 +35,7 @@ Return in JSON:
 
 If no matches: { "recommendedMovies": [] }
 `,
-}
+};
 
 export async function getChatCompletion(
   text: string,
@@ -43,28 +43,28 @@ export async function getChatCompletion(
   previousMessages: ChatCompletionMessageParam[] = []
 ) {
   if (!text) {
-    console.log("Sorry, I couldn't find any relevant information about that.")
-    return
+    console.log("Sorry, I couldn't find any relevant information about that.");
+    return;
   }
 
   const messages: ChatCompletionMessageParam[] = [
     systemMessage,
     ...previousMessages,
     {
-      role: 'user',
+      role: "user",
       content: `-Movie List Context: ${text} 
 -User Preferences: ${query}`,
     },
-  ]
+  ];
 
   const response = await fetch(`${OPENAI_WORKER_URL}/api/movies`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ messages }),
-  })
+  });
 
-  const data = await response.json()
-  return data.content
+  const data = await response.json();
+  return data.content;
 }

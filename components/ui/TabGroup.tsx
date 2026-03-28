@@ -4,10 +4,10 @@ const TabGroup = ({
   onChange,
   label,
 }: {
-  options: readonly string[]
-  value: string
-  onChange: (value: string) => void
-  label: string
+  options: readonly string[];
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
 }) => (
   <div className="mb-4">
     <span className="label-text text-secondary text-base">{label}</span>
@@ -17,7 +17,7 @@ const TabGroup = ({
           key={option}
           role="tab"
           type="button"
-          className={`tab bg-info ${value === option ? 'tab-active' : ''}`}
+          className={`tab bg-info ${value === option ? "tab-active" : ""}`}
           onClick={() => onChange(option)}
         >
           {option.charAt(0).toUpperCase() + option.slice(1)}
@@ -25,6 +25,6 @@ const TabGroup = ({
       ))}
     </div>
   </div>
-)
+);
 
-export default TabGroup
+export default TabGroup;
