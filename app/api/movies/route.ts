@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { getLanguageModel } from "@/config/ai";
 import { stringifyMovieRecommendationsResponse } from "@/lib/utils/recommendations";
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   try {
     const { messages } = await request.json();
