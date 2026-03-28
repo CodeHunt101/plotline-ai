@@ -1,117 +1,140 @@
-# PlotlineAI 🎬
+# PlotlineAI
 
-PlotlineAI is a group-oriented movie recommendation system that combines AI and collaborative filtering to suggest movies that everyone in the group will enjoy watching together. Perfect for movie nights, family gatherings, or friend meetups.
+PlotlineAI is a group movie recommendation app. Each participant shares their tastes -- favourite film, preferred era, current mood, and a favourite film personality -- and the system uses **embedding-based vector search** combined with a **language model** to surface movies the whole group will enjoy.
 
 [![Live Demo](https://img.shields.io/badge/demo-plotline--ai-blue)](https://plotline-ai.vercel.app/)
 
-## 🌟 Key Features
+## How It Works
 
-- **Group Movie Selection**
-  - Support for up to 10 participants
-  - Collaborative filtering based on group preferences
-  - Time-based movie filtering
+The recommendation pipeline has three stages: **embed**, **retrieve**, and **rank**.
 
-- **Smart Recommendations**
-  - Time-aware suggestions based on available watching time
-  - Personalised matching considering each person's:
-    - Favourite movies
-    - Preferred movie type (new/classic)
-    - Current mood (fun/serious/inspiring/scary)
-    - Favourite film personality
+```
+Participants' preferences
+        |
+        v
+  +-----------+       +-----------------+       +------------------+
+  |  Embed    | ----> |  Vector Search  | ----> |  LLM Re-ranking  |
+  | (AI SDK)  |       | (Supabase +     |       | (Gemini / Open-  |
+  |           |       |  pgvector)      |       |  Router)         |
+  +-----------+       +-----------------+       +------------------+
+                                                        |
+                                                        v
+                                                 Recommended movies
+                                                 + TMDB posters
+```
 
-- **User Experience**
-  - Movie poster integration via TMDB API
-  - Intuitive form progression
-  - Dynamic movie carousel for recommendations
+### 1. Collect preferences
 
-- **Advanced Technology**
-  - AI-powered suggestions using OpenAI embeddings and chat completion models
-  - Modern UI built with Next.js 15, React 19 Tailwind CSS, and DaisyUI
-  - Edge computing via Cloudflare Workers for optimal performance
-  - Vector similarity search for movie recommendations
+Each participant fills in:
 
-## 🛠️ Tech Stack
+- A **favourite movie** and why they love it
+- **New vs classic** preference (2015-present or pre-2015)
+- **Mood** (fun, serious, inspiring, or scary)
+- A **favourite film person** they would want to be stranded on an island with
 
-### Core Technologies
+The group also sets how much **time** is available for the session.
 
-- **Frontend**: Next.js 16, React 19, TypeScript
-- **Styling**: Tailwind CSS, DaisyUI
-- **AI/ML**: OpenAI API (embeddings and chat completions)
-- **Database**: Supabase (movie data and embeddings)
-- **Edge Computing**: Cloudflare Workers
-- **Testing**: Jest, React Testing Library
+### 2. Embed
 
-### External APIs
+All preferences are concatenated into a single text blob and sent to `POST /api/embeddings`. The server calls an embedding model (Google Gemini `gemini-embedding-001` at 768 dimensions by default, or an OpenRouter model) via the Vercel AI SDK. The returned vector is **L2-normalised** on the client before the next step.
 
-- **TMDB**: Movie poster fetching
-- **OpenAI**: AI recommendations
-- **Supabase**: Data storage and vector similarity search
+### 3. Retrieve -- vector similarity search
 
-## 🚀 Getting Started
+The normalised vector is forwarded to the **Supabase Cloudflare Worker** (`POST /api/match-movies`), which runs the Postgres RPC `match_movies_4`. This function uses the pgvector `<=>` (cosine distance) operator against a pre-seeded corpus of movie embeddings and returns the **top 10 matches** above a 0.25 similarity threshold.
+
+The movie corpus lives in `public/constants/movies.txt` and is chunked and embedded via the `/api/embeddings-seed` endpoint on first run.
+
+### 4. Rank -- language model re-ranking
+
+The matched movie content is split into individual entries and formatted as a "Movie List Context". This context, together with the original participant preferences, is sent to `POST /api/movies`, which calls a language model (Gemini 2.5 Flash by default, or a model via OpenRouter) through the Cloudflare AI Gateway.
+
+A structured system prompt instructs the model to return between 1 and 10 movies as JSON, filtered by time constraints, era preference, mood, and genre fit.
+
+### 5. Fallback and display
+
+If the LLM response cannot be parsed as valid JSON, a **heuristic fallback** (`lib/utils/recommendations.ts`) extracts movie titles, years, and synopses directly from the raw vector-match text. Movie posters are fetched from the **TMDB API** and displayed in a carousel.
+
+## Tech Stack
+
+| Layer       | Technology                                                |
+| ----------- | --------------------------------------------------------- |
+| Framework   | Next.js 16 (App Router, Turbopack)                        |
+| UI          | React 19, Tailwind CSS, DaisyUI                           |
+| AI          | Vercel AI SDK, Google Gemini, OpenRouter                  |
+| Gateway     | Cloudflare AI Gateway                                     |
+| Database    | Supabase (Postgres + pgvector)                            |
+| Edge worker | Cloudflare Workers                                        |
+| Testing     | Jest 29, React Testing Library                            |
+| Tooling     | TypeScript (strict), ESLint, Prettier, Husky, lint-staged |
+
+## Getting Started
 
 ### Prerequisites
 
-- Node.js (v22.13.1 or higher)
-- npm, yarn, or pnpm
-- API keys for TMDB, OpenAI, and Supabase
-- Supabase database with pgvector extension enabled
+- Node.js v22.13.1 or higher
+- pnpm
+- A Supabase project with the pgvector extension enabled
+- API keys for your chosen AI provider (Google or OpenRouter) and TMDB
+- (Optional) A Cloudflare account for the AI Gateway
 
-### Installation
-
-1. Clone the repository:
+### Install
 
 ```bash
 git clone https://github.com/CodeHunt101/plotline-ai.git
 cd plotline-ai
-```
-
-2. Install dependencies:
-
-```bash
-npm install
-# or
-yarn install
-# or
 pnpm install
 ```
 
-3. Configure environment variables:
+### Environment variables
 
-Create `.env.local` for the Next.js app:
-
-```env
-NEXT_PUBLIC_TMBD_ACCESS_TOKEN=your_tmdb_access_token
-NEXT_PUBLIC_OPENAI_WORKER_URL=your_openai_worker_url (optional)
-NEXT_PUBLIC_SUPABASE_WORKER_URL=your_supabase_worker_url (optional)
-```
-
-Create `.dev.vars` for Cloudflare workers:
+Create **`.env.local`** for the Next.js app:
 
 ```env
-NEXT_PUBLIC_OPENAI_API_KEY=your_openai_api_key
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_API_KEY=your_supabase_api_key
+# AI provider: "google" (default) or "openrouter"
+AI_PROVIDER=google
+EMBEDDING_PROVIDER=google
+
+# Google Gemini
+GOOGLE_GENERATIVE_AI_API_KEY=
+
+# OpenRouter (only needed when AI_PROVIDER or EMBEDDING_PROVIDER is "openrouter")
+OPENROUTER_API_KEY=
+OPENROUTER_EMBEDDING_MODEL=            # optional, defaults to nvidia/llama-nemotron-embed-vl-1b-v2:free
+
+# Cloudflare AI Gateway (required for Google provider path)
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_GATEWAY_NAME=
+CLOUDFLARE_API_KEY=                    # optional
+
+# Supabase worker URL (defaults to http://localhost:7878)
+NEXT_PUBLIC_SUPABASE_WORKER_URL=
+
+# TMDB poster lookup
+NEXT_PUBLIC_TMBD_ACCESS_TOKEN=
 ```
 
-### Database Setup
+Create **`.dev.vars`** for the Cloudflare Supabase worker (see `.dev.vars.example`):
 
-1. Enable pgvector extension in your Supabase database
-2. Create the necessary tables and functions:
+```env
+SUPABASE_URL=
+SUPABASE_API_KEY=
+```
+
+### Database setup
+
+Enable the pgvector extension and create the movies table. The vector dimension must match your embedding provider -- **768** for Google Gemini (default), **1536** for OpenAI-compatible models.
 
 ```sql
--- Enable pgvector extension
 create extension vector;
 
--- Create movies table with vector similarity search
 create table movies_4 (
   id bigserial primary key,
   content text,
-  embedding vector(1536)
+  embedding vector(768)
 );
 
--- Create the similarity search function
 create function match_movies_4(
-  query_embedding vector(1536),
+  query_embedding vector(768),
   match_threshold float,
   match_count int
 )
@@ -135,115 +158,93 @@ $$;
 
 ### Development
 
-1. Start the Next.js development server:
+Start the Next.js dev server and the Supabase worker:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
 pnpm dev
-```
-
-2. Launch Cloudflare Workers:
-
-For OpenAI worker:
-
-```bash
-npx wrangler dev --config wrangler.openai.toml
-```
-
-For Supabase worker:
-
-```bash
 npx wrangler dev --config wrangler.supabase.toml
 ```
 
-3. Access the application at [http://localhost:3000](http://localhost:3000)
+Then open [http://localhost:3000](http://localhost:3000).
+
+To seed the movie corpus into Supabase on first run, visit `/api/embeddings-seed` or call `GET /api/embeddings-seed` directly. This chunks `public/constants/movies.txt`, embeds each chunk, and inserts them into the `movies_4` table if it is empty.
 
 ### Testing
 
 ```bash
-# Run tests in watch mode
-npm test
+pnpm test              # watch mode
+pnpm test:ci           # single run (CI)
+pnpm test:coverage     # coverage report -- 95% threshold enforced
 ```
 
 ### Deployment
 
-1. Deploy Next.js app to Vercel:
+Deploy the Next.js app to Vercel:
 
 ```bash
 vercel
 ```
 
-2. Deploy Cloudflare Workers:
+Deploy the Supabase worker to Cloudflare:
 
 ```bash
-# Deploy OpenAI worker
-npx wrangler deploy --config wrangler.openai.toml
-
-# Deploy Supabase worker
 npx wrangler deploy --config wrangler.supabase.toml
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 plotline-ai/
-├── app/                      # Next.js app directory
-│   ├── (routes)/               # Application routes
-│   │   ├── movieForm/            # Movie form page
-│   │   ├── recommendations/      # Recommendations page
-│   │   └── page.tsx              # Home page
-│   ├── api/                    # API routes
-│   ├── globals.css             # Global styles
-│   └── layout.tsx              # Root layout
-├── components/               # React components
-│   ├── features/               # Feature-specific components
-│   └── ui/                     # Reusable UI components
-├── lib/                      # Core utilities
-│   ├── config/                 # Configuration files
-│   └── services/               # Service integrations
-├── contexts/                 # React contexts
-├── constants/                # Constants and shared data
-├── public/                   # Static assets
-├── types/                    # TypeScript type definitions
-├── workers/                  # Cloudflare Workers
-    ├── openai-worker.ts
-    └── supabase-worker.ts
-
+├── app/
+│   ├── (routes)/                 # UI pages
+│   │   ├── page.tsx                # Home -- participant setup
+│   │   ├── movieForm/page.tsx      # Per-person preference form
+│   │   └── recommendations/page.tsx# Results carousel
+│   ├── api/
+│   │   ├── movies/route.ts         # LLM chat completion
+│   │   ├── embeddings/route.ts     # Embedding generation
+│   │   └── embeddings-seed/route.ts# Corpus seeding
+│   ├── layout.tsx
+│   └── globals.css
+├── components/
+│   ├── features/                 # Header, Logo, ParticipantsSetup, MovieFormFields
+│   └── ui/                       # TextAreaField, TabGroup
+├── contexts/                     # MovieContext (shared state)
+├── constants/                    # MOVIE_TYPES, MOOD_TYPES, sample data
+├── types/                        # TypeScript interfaces (api.ts, movie.ts)
+├── lib/
+│   ├── config/                   # ai.ts (model selection), supabase.ts
+│   ├── services/                 # movies, embeddings, openai, supabase, seed, tmdb
+│   └── utils/                    # recommendations.ts, urls.ts
+├── workers/
+│   └── supabase-worker.ts        # Cloudflare Worker for Supabase operations
+├── public/
+│   └── constants/movies.txt      # Movie corpus for embedding seeding
+├── wrangler.supabase.toml
+├── jest.config.js
+├── tailwind.config.ts
+└── package.json
 ```
 
-## ⚡ Cloudflare Workers Architecture
-
-The application leverages two Cloudflare Workers for enhanced security and performance:
-
-### OpenAI Worker
-
-- Handles all OpenAI API interactions
-- Manages embeddings and chat completions
-- Ensures API key security
-- Rate limiting and error handling
+## Cloudflare Workers
 
 ### Supabase Worker
 
-- Manages database operations
-- Performs vector similarity searches
-- Handles data seeding and updates
-- Connection pooling and query optimisation
+The Supabase worker (`workers/supabase-worker.ts`, port 7878) proxies database operations so that Supabase credentials stay server-side:
 
-### Benefits
+- `POST /api/insert-movies` -- batch-insert chunked movie data during seeding.
+- `GET /api/check-empty` -- check whether the movies table needs seeding.
+- `POST /api/match-movies` -- run the pgvector similarity RPC and return the top matches.
 
-- Enhanced security through API key protection
-- Improved performance via edge computing
-- Better scalability and reliability
-- Reduced client-side complexity
+### AI Gateway
 
-## ⚠️ AI Limitations
+AI model calls (both embedding and chat) are routed through the **Cloudflare AI Gateway** for logging, caching, rate limiting, and provider failover. The gateway is configured in `lib/config/ai.ts` using the `ai-gateway-provider` package.
 
-Please note that PlotlineAI uses artificial intelligence for movie recommendations, and while it strives for accuracy:
+## AI Limitations
 
-- Recommendations may not always perfectly match group preferences
-- Movie information and details might occasionally be incomplete or imprecise
-- The system works best with clear, detailed input from all participants
-- Results can vary based on the quality and specificity of user inputs
+PlotlineAI uses artificial intelligence for movie recommendations, and while it strives for accuracy:
+
+- Recommendations may not always perfectly match group preferences.
+- Movie information and details might occasionally be incomplete or imprecise.
+- The system works best with clear, detailed input from all participants.
+- Results can vary based on the quality and specificity of user inputs.
