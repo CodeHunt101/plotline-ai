@@ -27,13 +27,16 @@ const customJestConfig = {
     "!next.config.*",
     "!**/workers/**",
     "!**/.wrangler/**",
+    "!tailwind.config.ts",
+    "!app/fonts.ts",
+    "!app/layout.tsx",
   ],
   coverageThreshold: {
     global: {
-      branches: 50,
-      functions: 50,
-      lines: 50,
-      statements: 50,
+      branches: 95,
+      functions: 95,
+      lines: 95,
+      statements: 95,
     },
   },
 };

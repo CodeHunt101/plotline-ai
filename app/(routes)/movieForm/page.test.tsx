@@ -13,32 +13,25 @@ jest.mock("@/services/movies", () => ({
   getMovieRecommendations: jest.fn(),
 }));
 
-// Mock useActionState hook to return the expected tuple
+// Mock useActionState so the real handleFormSubmission callback is invoked
 const mockSubmitAction = jest.fn();
-const mockIsPending = false;
-const mockError = null;
 
 jest.mock("react", () => ({
   ...jest.requireActual("react"),
-  useActionState: () => [mockError, mockSubmitAction, mockIsPending],
+  useActionState: (fn: (prevState: unknown, formData: FormData) => Promise<unknown>) => {
+    mockSubmitAction.mockImplementation((formData: FormData) => fn(undefined, formData));
+    return [null, mockSubmitAction, false];
+  },
   useState: jest.requireActual("react").useState,
 }));
 
 describe("MovieForm", () => {
-  const mockRouter = {
-    push: jest.fn(),
-  };
+  const mockRouter = { push: jest.fn() };
 
   const mockRecommendation = {
     match: [],
     result: {
-      recommendedMovies: [
-        {
-          name: "Test Movie",
-          releaseYear: "2024",
-          synopsis: "A test movie",
-        },
-      ],
+      recommendedMovies: [{ name: "Test Movie", releaseYear: "2024", synopsis: "A test movie" }],
     },
   };
 
@@ -48,79 +41,57 @@ describe("MovieForm", () => {
     (getMovieRecommendations as jest.Mock).mockResolvedValue(mockRecommendation);
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const renderMovieForm = (participants = 1) => {
-    return render(
+  const renderMovieForm = () =>
+    render(
       <MovieProvider>
         <MovieForm />
       </MovieProvider>
     );
-  };
 
   it("renders the form with initial state", () => {
     renderMovieForm();
-
     expect(screen.getByText("Person #1")).toBeInTheDocument();
-    expect(screen.getByRole("button")).toHaveTextContent("Get Movie");
+    expect(screen.getByRole("button", { name: /get movie/i })).toBeInTheDocument();
   });
 
-  it("displays validation errors when submitting empty form", async () => {
+  it("returns a validation error message when required fields are empty", async () => {
     renderMovieForm();
 
-    // Create a mock FormData object
-    const mockFormData = new FormData();
-    mockFormData.append("favouriteMovie", "");
-    mockFormData.append("favouriteFilmPerson", "");
+    const formData = new FormData();
+    formData.append("favouriteMovie", "");
+    formData.append("favouriteFilmPerson", "");
 
-    // Trigger the submit action directly
-    await mockSubmitAction(mockFormData);
+    const result = await mockSubmitAction(formData);
 
-    waitFor(() => {
-      expect(screen.getByText("Please fill out all required fields")).toBeInTheDocument();
-    });
+    expect(result).toBe("Please fill out all required fields");
   });
 
-  it("handles successful form submission for single participant", async () => {
+  it("calls getMovieRecommendations and navigates on successful single-participant submission", async () => {
     renderMovieForm();
 
-    // Fill out the form
-    fireEvent.change(screen.getByLabelText(/favourite movie/i), {
-      target: { name: "favouriteMovie", value: "The Matrix" },
-    });
+    const formData = new FormData();
+    formData.append("favouriteMovie", "The Matrix");
+    formData.append("favouriteFilmPerson", "Keanu Reeves");
 
-    fireEvent.change(screen.getByLabelText(/famous film person/i), {
-      target: { name: "favouriteFilmPerson", value: "Keanu Reeves" },
-    });
+    await mockSubmitAction(formData);
 
-    // Create a mock FormData object with the form values
-    const mockFormData = new FormData();
-    mockFormData.append("favouriteMovie", "The Matrix");
-    mockFormData.append("favouriteFilmPerson", "Keanu Reeves");
-
-    // Trigger the submit action directly
-    await mockSubmitAction(mockFormData);
-
-    waitFor(() => {
-      expect(mockRouter.push).toHaveBeenCalledWith("/recommendations");
-      expect(getMovieRecommendations).toHaveBeenCalled();
-    });
+    expect(getMovieRecommendations).toHaveBeenCalled();
+    expect(mockRouter.push).toHaveBeenCalledWith("/recommendations");
   });
 
-  it("handles multi-participant form submission correctly", async () => {
-    // Set up MovieContext with 2 participants
+  it("advances to the next participant without calling getMovieRecommendations", async () => {
     const participantsData: ParticipantData[] = [];
-    const recommendations = null;
-    const timeAvailable = "";
-    const totalParticipants = 2;
+    const mockSetParticipantsData = jest.fn();
+
     render(
       <MovieProvider>
         <MovieContext.Provider
           value={{
             participantsData,
-            recommendations,
-            timeAvailable,
-            totalParticipants,
-            setParticipantsData: jest.fn(),
+            recommendations: null,
+            timeAvailable: "",
+            totalParticipants: 2,
+            setParticipantsData: mockSetParticipantsData,
             setRecommendations: jest.fn(),
             setGroupTimeAvailable: jest.fn(),
             setTotalParticipants: jest.fn(),
@@ -131,128 +102,109 @@ describe("MovieForm", () => {
       </MovieProvider>
     );
 
-    // Submit first participant's data
-    const movieInput1 = screen.getByLabelText("What's your favourite movie and why?");
-    const personInput1 = screen.getByLabelText(/famous film person/i);
+    expect(screen.getByRole("button", { name: /next/i })).toBeInTheDocument();
 
-    fireEvent.change(movieInput1, {
-      target: { value: "Interstellar" },
-    });
-    fireEvent.change(personInput1, {
-      target: { value: "Matt Damon" },
-    });
+    const formData = new FormData();
+    formData.append("favouriteMovie", "Interstellar");
+    formData.append("favouriteFilmPerson", "Matt Damon");
 
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await mockSubmitAction(formData);
 
-    // Verify second participant's form is shown
-    waitFor(() => {
-      expect(screen.getByText("Person #2")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Get Movie" })).toBeInTheDocument();
-
-      // Submit second participant's data
-      const movieInput2 = screen.getByLabelText("What's your favourite movie and why?");
-      const personInput2 = screen.getByLabelText(/famous film person/i);
-
-      fireEvent.change(movieInput2, {
-        target: { value: "The Dark Knight" },
-      });
-      fireEvent.change(personInput2, {
-        target: { value: "Heath Ledger" },
-      });
-
-      fireEvent.click(screen.getByRole("button", { name: "Get Movie" }));
-    });
-
-    waitFor(() => {
-      expect(mockRouter.push).toHaveBeenCalledWith("/recommendations");
-      expect(getMovieRecommendations).toHaveBeenCalled();
-    });
+    expect(getMovieRecommendations).not.toHaveBeenCalled();
+    expect(mockSetParticipantsData).toHaveBeenCalled();
   });
 
-  it("submits the form and navigates to recommendations page on success", async () => {
+  it("returns the API error message when getMovieRecommendations throws an Error", async () => {
+    (getMovieRecommendations as jest.Mock).mockRejectedValue(new Error("API Error"));
     renderMovieForm();
 
-    // Fill out the form
-    fireEvent.change(screen.getByLabelText("What's your favourite movie and why?"), {
-      target: { value: "Inception" },
-    });
-    fireEvent.change(
-      screen.getByLabelText(
-        "Which famous film person would you love to be stranded on an island with and why?"
-      ),
-      {
-        target: { value: "Christopher Nolan" },
-      }
-    );
+    const formData = new FormData();
+    formData.append("favouriteMovie", "The Matrix");
+    formData.append("favouriteFilmPerson", "Keanu Reeves");
 
-    fireEvent.click(screen.getByRole("button"));
+    const result = await mockSubmitAction(formData);
 
-    waitFor(() => {
-      expect(mockRouter.push).toHaveBeenCalledWith("/recommendations");
-    });
+    expect(result).toBe("API Error");
+  });
+
+  it("returns a generic error message when a non-Error is thrown", async () => {
+    (getMovieRecommendations as jest.Mock).mockRejectedValue("unexpected");
+    renderMovieForm();
+
+    const formData = new FormData();
+    formData.append("favouriteMovie", "The Matrix");
+    formData.append("favouriteFilmPerson", "Keanu Reeves");
+
+    const result = await mockSubmitAction(formData);
+
+    expect(result).toBe("An unexpected error occurred");
   });
 
   it("handles movie type and mood type selection", () => {
     renderMovieForm();
 
-    const classicRadio = screen.getByText("Classic");
-    fireEvent.click(classicRadio);
-    waitFor(() => {
-      expect(classicRadio).toBeChecked();
-    });
+    fireEvent.click(screen.getByText("Classic"));
+    fireEvent.click(screen.getByText("Serious"));
 
-    const seriousRadio = screen.getByText("Serious");
-    fireEvent.click(seriousRadio);
-    waitFor(() => {
-      expect(seriousRadio).toBeChecked();
-    });
+    // Tabs are still rendered without error
+    expect(screen.getByText("Classic")).toBeInTheDocument();
+    expect(screen.getByText("Serious")).toBeInTheDocument();
   });
 
-  it("resets form after submission for multi-participant scenario", async () => {
-    renderMovieForm(2);
-
-    // Fill and submit first participant
-    fireEvent.change(screen.getByLabelText(/favourite movie/i), {
-      target: { name: "favouriteMovie", value: "The Matrix" },
-    });
-
-    fireEvent.change(screen.getByLabelText(/famous film person/i), {
-      target: { name: "favouriteFilmPerson", value: "Keanu Reeves" },
-    });
-
-    const mockFormData = new FormData();
-    mockFormData.append("favouriteMovie", "The Matrix");
-    mockFormData.append("favouriteFilmPerson", "Keanu Reeves");
-    await mockSubmitAction(mockFormData);
-
-    waitFor(() => {
-      const movieInput = screen.getByLabelText(/favourite movie/i) as HTMLTextAreaElement;
-      const personInput = screen.getByLabelText(/famous film person/i) as HTMLTextAreaElement;
-      expect(movieInput.value).toBe("");
-      expect(personInput.value).toBe("");
-    });
-  });
-
-  it("handles API errors gracefully", async () => {
-    (getMovieRecommendations as jest.Mock).mockRejectedValue(new Error("API Error"));
+  it("shows the loading state when isPending is true", () => {
+    // Override the mock for this test to set isPending = true
+    jest
+      .spyOn(require("react"), "useActionState")
+      .mockReturnValueOnce([null, mockSubmitAction, true]);
 
     renderMovieForm();
 
-    fireEvent.change(screen.getByLabelText(/favourite movie/i), {
-      target: { name: "favouriteMovie", value: "The Matrix" },
-    });
+    expect(screen.getByText("Loading movies...")).toBeInTheDocument();
+    expect(screen.queryByText("Person #1")).not.toBeInTheDocument();
+  });
 
-    fireEvent.change(screen.getByLabelText(/famous film person/i), {
-      target: { name: "favouriteFilmPerson", value: "Keanu Reeves" },
-    });
+  it("displays the error returned by the action", () => {
+    // Override the mock for this test to inject an error string
+    jest
+      .spyOn(require("react"), "useActionState")
+      .mockReturnValueOnce(["Please fill out all required fields", mockSubmitAction, false]);
 
-    const mockFormData = new FormData();
-    mockFormData.append("favouriteMovie", "The Matrix");
-    mockFormData.append("favouriteFilmPerson", "Keanu Reeves");
-    await mockSubmitAction(mockFormData);
+    renderMovieForm();
 
-    waitFor(() => {
-      expect(screen.getByText(/An unexpected error occurred/i)).toBeInTheDocument();
+    expect(screen.getByText("Please fill out all required fields")).toBeInTheDocument();
+  });
+
+  it("clears form data after advancing to next participant", async () => {
+    const mockSetParticipantsData = jest.fn();
+
+    render(
+      <MovieProvider>
+        <MovieContext.Provider
+          value={{
+            participantsData: [],
+            recommendations: null,
+            timeAvailable: "",
+            totalParticipants: 2,
+            setParticipantsData: mockSetParticipantsData,
+            setRecommendations: jest.fn(),
+            setGroupTimeAvailable: jest.fn(),
+            setTotalParticipants: jest.fn(),
+          }}
+        >
+          <MovieForm />
+        </MovieContext.Provider>
+      </MovieProvider>
+    );
+
+    const formData = new FormData();
+    formData.append("favouriteMovie", "Inception");
+    formData.append("favouriteFilmPerson", "Christopher Nolan");
+
+    await mockSubmitAction(formData);
+
+    await waitFor(() => {
+      const movieInput = screen.getByLabelText(/favourite movie/i) as HTMLTextAreaElement;
+      expect(movieInput.value).toBe("");
     });
   });
 });

@@ -133,4 +133,22 @@ describe("getMovieRecommendations", () => {
 
     await expect(getMovieRecommendations(mockMovieData)).rejects.toThrow("Chat completion failed");
   });
+
+  it("should use the fallback string when getChatCompletion returns null", async () => {
+    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
+    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
+    (getChatCompletion as jest.Mock).mockResolvedValue(null);
+
+    // The fallback string is not valid JSON, so JSON.parse throws and the error propagates
+    await expect(getMovieRecommendations(mockMovieData)).rejects.toThrow();
+  });
+
+  it("should re-throw unknown errors as a generic Error", async () => {
+    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
+    (matchMoviesByEmbedding as jest.Mock).mockRejectedValue("non-Error value");
+
+    await expect(getMovieRecommendations(mockMovieData)).rejects.toThrow(
+      "An unknown error occurred"
+    );
+  });
 });

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { useRouter } from "next/navigation";
 import { useMovieContext } from "@/contexts/MovieContext";
 import { searchMoviePoster } from "@/lib/services/tmdb";
@@ -156,28 +156,42 @@ describe("Recommendations Component", () => {
     expect(screen.getByText("No recommendations found")).toBeInTheDocument();
   });
 
-  it("caches poster URLs correctly", async () => {
+  it("uses empty string as poster URL when searchMoviePoster resolves with undefined", async () => {
+    (searchMoviePoster as jest.Mock).mockResolvedValue(undefined);
+
     render(<Recommendations />);
 
-    // Wait for initial poster fetch
-    waitFor(() => {
-      expect(searchMoviePoster).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(screen.queryByTestId("poster-loading")).not.toBeInTheDocument();
     });
 
-    // Click to next movie
+    // Movie text info is still shown even without a valid poster URL
+    expect(screen.getByText(/Test Movie 1/)).toBeInTheDocument();
+  });
+
+  it("uses cached poster URL without re-fetching on revisit", async () => {
+    render(<Recommendations />);
+
+    // Wait for first movie's poster to finish loading
+    await waitFor(() => {
+      expect(screen.queryByTestId("poster-loading")).not.toBeInTheDocument();
+    });
+
+    // Navigate to second movie
     fireEvent.click(screen.getByText("Next Movie"));
 
-    // Should fetch second movie's poster
-    waitFor(() => {
-      expect(searchMoviePoster).toHaveBeenCalledTimes(2);
+    // Wait for second movie's poster to be fetched
+    await waitFor(() => {
+      expect(searchMoviePoster).toHaveBeenCalledWith("Test Movie 2");
     });
 
-    // Click back to first movie
+    // Navigate back to first movie (cycles)
     fireEvent.click(screen.getByText("Next Movie"));
 
-    // Should not fetch first movie's poster again as it should be cached
-    waitFor(() => {
-      expect(searchMoviePoster).toHaveBeenCalledTimes(2);
-    });
+    // Allow React to process the effect (should hit cache, not re-fetch)
+    await act(async () => {});
+
+    // Only 2 fetches total — the cache prevents re-fetching movie 1
+    expect(searchMoviePoster).toHaveBeenCalledTimes(2);
   });
 });
