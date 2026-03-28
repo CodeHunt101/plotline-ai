@@ -11,9 +11,6 @@ importers:
       '@ai-sdk/google':
         specifier: ^3.0.53
         version: 3.0.53(zod@3.25.76)
-      '@ai-sdk/mistral':
-        specifier: ^3.0.27
-        version: 3.0.27(zod@3.25.76)
       '@ai-sdk/openai':
         specifier: ^3.0.48
         version: 3.0.48(zod@3.25.76)
@@ -4023,6 +4020,7 @@ snapshots:
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.21(zod@3.25.76)
       zod: 3.25.76
+    optional: true
 
   '@ai-sdk/openai-compatible@2.0.37(zod@3.25.76)':
     dependencies:
