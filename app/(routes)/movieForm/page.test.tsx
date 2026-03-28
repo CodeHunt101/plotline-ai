@@ -154,6 +154,7 @@ describe("MovieForm", () => {
   it("shows the loading state when isPending is true", () => {
     // Override the mock for this test to set isPending = true
     jest
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- need CommonJS `require` so spy targets the same mocked module instance `page.tsx` binds to
       .spyOn(require("react"), "useActionState")
       .mockReturnValueOnce([null, mockSubmitAction, true]);
 
@@ -166,6 +167,7 @@ describe("MovieForm", () => {
   it("displays the error returned by the action", () => {
     // Override the mock for this test to inject an error string
     jest
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- need CommonJS `require` so spy targets the same mocked module instance `page.tsx` binds to
       .spyOn(require("react"), "useActionState")
       .mockReturnValueOnce(["Please fill out all required fields", mockSubmitAction, false]);
 

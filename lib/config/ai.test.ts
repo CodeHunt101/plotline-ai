@@ -4,7 +4,8 @@ const mockAiGatewayFn = jest.fn((model) => model);
 const mockCreateAiGateway = jest.fn(() => mockAiGatewayFn);
 
 jest.mock("ai-gateway-provider", () => ({
-  createAiGateway: (...args: unknown[]) => mockCreateAiGateway(...args),
+  createAiGateway: (...args: unknown[]) =>
+    mockCreateAiGateway(...(args as Parameters<typeof mockCreateAiGateway>)),
 }));
 
 const mockGoogleModel = { provider: "google", modelId: "gemini-2.5-flash" };

@@ -1,34 +1,39 @@
 import { getBaseUrl, createFullUrl } from "./urls";
 
+/** `process.env.NODE_ENV` is readonly in typings; tests need to override it. */
+function setNodeEnv(value: string | undefined): void {
+  (process.env as Record<string, string | undefined>).NODE_ENV = value;
+}
+
 describe("getBaseUrl", () => {
   const originalNodeEnv = process.env.NODE_ENV;
 
   afterEach(() => {
-    process.env.NODE_ENV = originalNodeEnv;
+    setNodeEnv(originalNodeEnv);
   });
 
   const makeHeaders = (host: string) =>
     ({ get: (key: string) => (key === "host" ? host : null) }) as unknown as Headers;
 
   it("returns http URL for production with localhost host", () => {
-    process.env.NODE_ENV = "production";
+    setNodeEnv("production");
     expect(getBaseUrl(makeHeaders("localhost:3000"))).toBe("http://localhost:3000");
   });
 
   it("returns http URL for development environment", () => {
-    process.env.NODE_ENV = "development";
+    setNodeEnv("development");
     expect(getBaseUrl(makeHeaders("localhost:3000"))).toBe("http://localhost:3000");
   });
 
   it("returns https URL for production with non-localhost host", () => {
-    process.env.NODE_ENV = "production";
+    setNodeEnv("production");
     expect(getBaseUrl(makeHeaders("plotline-ai.vercel.app"))).toBe(
       "https://plotline-ai.vercel.app"
     );
   });
 
   it("returns https URL for test environment (default branch)", () => {
-    process.env.NODE_ENV = "test";
+    setNodeEnv("test");
     expect(getBaseUrl(makeHeaders("example.com"))).toBe("https://example.com");
   });
 });
