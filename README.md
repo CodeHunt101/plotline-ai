@@ -191,6 +191,18 @@ Deploy the Supabase worker to Cloudflare:
 npx wrangler deploy --config wrangler.supabase.toml
 ```
 
+### Supabase keepalive
+
+This repo includes a GitHub Actions workflow at `.github/workflows/supabase-keepalive.yml` that runs a lightweight Postgres query once per day.
+
+To enable it:
+
+1. In GitHub, open **Settings -> Secrets and variables -> Actions**.
+2. Add a repository secret named `SUPABASE_DB_URL`.
+3. Paste your Supabase **transaction pooler** connection string from **Connect -> Transaction mode** in the Supabase dashboard.
+
+The workflow also supports manual runs from the **Actions** tab via `workflow_dispatch`.
+
 ## Project Structure
 
 ```
