@@ -36,7 +36,7 @@ The group also sets how much **time** is available for the session.
 
 ### 2. Embed
 
-All preferences are concatenated into a single text blob and sent to `POST /api/embeddings`. The server calls an embedding model (Google Gemini `gemini-embedding-001` at 768 dimensions by default, or an OpenRouter model) via the Vercel AI SDK. The returned vector is **L2-normalised** on the client before the next step.
+All preferences are concatenated into a single text blob and sent to `POST /api/embeddings`. The server calls an embedding model (OpenRouter model or Google Gemini) via the Vercel AI SDK. The returned vector is **L2-normalised** on the client before the next step.
 
 ### 3. Retrieve -- vector similarity search
 
@@ -90,14 +90,14 @@ pnpm install
 Create **`.env.local`** for the Next.js app:
 
 ```env
-# AI provider: "google" (default) or "openrouter"
-AI_PROVIDER=google
-EMBEDDING_PROVIDER=google
+# AI providers: "openrouter" or "google"
+AI_TEXT_PROVIDER=google
+AI_EMBEDDING_PROVIDER=google
 
 # Google Gemini
 GOOGLE_GENERATIVE_AI_API_KEY=
 
-# OpenRouter (only needed when AI_PROVIDER or EMBEDDING_PROVIDER is "openrouter")
+# OpenRouter (only needed when AI_TEXT_PROVIDER or AI_EMBEDDING_PROVIDER is "openrouter")
 OPENROUTER_API_KEY=
 OPENROUTER_EMBEDDING_MODEL=            # optional, defaults to nvidia/llama-nemotron-embed-vl-1b-v2:free
 

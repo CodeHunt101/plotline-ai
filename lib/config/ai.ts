@@ -5,6 +5,9 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { LanguageModel } from "ai";
 
 const GOOGLE_EMBEDDING_DIMENSIONS = 768;
+const DEFAULT_GOOGLE_LANGUAGE_MODEL = "gemini-2.5-flash";
+const DEFAULT_GOOGLE_EMBEDDING_MODEL = "gemini-embedding-001";
+const DEFAULT_OPENROUTER_LANGUAGE_MODEL = "minimax/minimax-m2.5:free";
 const DEFAULT_OPENROUTER_EMBEDDING_MODEL = "nvidia/llama-nemotron-embed-vl-1b-v2:free";
 
 function getGateway() {
@@ -23,36 +26,40 @@ function getGateway() {
 }
 
 export function getLanguageModel(): LanguageModel {
-  const provider = process.env.AI_PROVIDER ?? "google";
+  const provider = process.env.AI_TEXT_PROVIDER ?? "google";
 
   switch (provider) {
-    case "google": {
-      const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY });
-      return getGateway()(google("gemini-2.5-flash")) as LanguageModel;
-    }
-
     case "openrouter": {
       const openrouter = createOpenAI({
         baseURL: "https://openrouter.ai/api/v1",
         apiKey: process.env.OPENROUTER_API_KEY,
       });
-      return openrouter("minimax/minimax-m2.5:free") as LanguageModel;
+      return openrouter(process.env.OPENROUTER_LANGUAGE_MODEL ?? DEFAULT_OPENROUTER_LANGUAGE_MODEL);
+    }
+
+    case "google": {
+      const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY });
+      return getGateway()(
+        google(process.env.GOOGLE_LANGUAGE_MODEL ?? DEFAULT_GOOGLE_LANGUAGE_MODEL)
+      );
     }
 
     default:
-      throw new Error(`Unsupported AI_PROVIDER "${provider}". Valid values: google, openrouter`);
+      throw new Error(
+        `Unsupported AI_TEXT_PROVIDER "${provider}". Valid values: google, openrouter`
+      );
   }
 }
 
 export function getEmbeddingModel() {
-  const provider = process.env.EMBEDDING_PROVIDER ?? "google";
+  const provider = process.env.AI_EMBEDDING_PROVIDER ?? "openrouter";
 
   switch (provider) {
     case "google": {
       const google = createGoogleGenerativeAI({
         apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
       });
-      return google.embedding("gemini-embedding-001");
+      return google.embedding(process.env.GOOGLE_EMBEDDING_MODEL ?? DEFAULT_GOOGLE_EMBEDDING_MODEL);
     }
 
     case "openrouter": {
@@ -67,13 +74,13 @@ export function getEmbeddingModel() {
 
     default:
       throw new Error(
-        `Unsupported EMBEDDING_PROVIDER "${provider}". Valid values: google, openrouter`
+        `Unsupported AI_EMBEDDING_PROVIDER "${provider}". Valid values: google, openrouter`
       );
   }
 }
 
 export function getEmbeddingProviderOptions() {
-  const provider = process.env.EMBEDDING_PROVIDER ?? "google";
+  const provider = process.env.AI_EMBEDDING_PROVIDER ?? "google";
 
   if (provider === "google") {
     return {

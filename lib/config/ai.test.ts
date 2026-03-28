@@ -53,8 +53,8 @@ describe("getLanguageModel", () => {
     process.env = originalEnv;
   });
 
-  it("returns google model when AI_PROVIDER is google", () => {
-    process.env.AI_PROVIDER = "google";
+  it("returns google model when AI_TEXT_PROVIDER is google", () => {
+    process.env.AI_TEXT_PROVIDER = "google";
     process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-key";
 
     const model = getLanguageModel();
@@ -66,8 +66,8 @@ describe("getLanguageModel", () => {
     expect(model).toBe(mockGoogleModel);
   });
 
-  it("defaults to google when AI_PROVIDER is not set", () => {
-    delete process.env.AI_PROVIDER;
+  it("defaults to google when AI_TEXT_PROVIDER is not set", () => {
+    delete process.env.AI_TEXT_PROVIDER;
     process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-key";
 
     getLanguageModel();
@@ -75,8 +75,8 @@ describe("getLanguageModel", () => {
     expect(mockGoogleCall).toHaveBeenCalledWith("gemini-2.5-flash");
   });
 
-  it("returns openrouter model when AI_PROVIDER is openrouter", () => {
-    process.env.AI_PROVIDER = "openrouter";
+  it("returns openrouter model when AI_TEXT_PROVIDER is openrouter", () => {
+    process.env.AI_TEXT_PROVIDER = "openrouter";
     process.env.OPENROUTER_API_KEY = "test-key";
 
     const { createOpenAI } = jest.requireMock("@ai-sdk/openai");
@@ -89,16 +89,16 @@ describe("getLanguageModel", () => {
     expect(model).toBe(mockOpenrouterModel);
   });
 
-  it("throws for unknown AI_PROVIDER", () => {
-    process.env.AI_PROVIDER = "unknown-provider";
+  it("throws for unknown AI_TEXT_PROVIDER", () => {
+    process.env.AI_TEXT_PROVIDER = "unknown-provider";
 
     expect(() => getLanguageModel()).toThrow(
-      'Unsupported AI_PROVIDER "unknown-provider". Valid values: google, openrouter'
+      'Unsupported AI_TEXT_PROVIDER "unknown-provider". Valid values: google, openrouter'
     );
   });
 
   it("throws when CLOUDFLARE_ACCOUNT_ID is missing and provider is google", () => {
-    process.env.AI_PROVIDER = "google";
+    process.env.AI_TEXT_PROVIDER = "google";
     delete process.env.CLOUDFLARE_ACCOUNT_ID;
 
     expect(() => getLanguageModel()).toThrow(
@@ -107,7 +107,7 @@ describe("getLanguageModel", () => {
   });
 
   it("throws when CLOUDFLARE_GATEWAY_NAME is missing and provider is google", () => {
-    process.env.AI_PROVIDER = "google";
+    process.env.AI_TEXT_PROVIDER = "google";
     delete process.env.CLOUDFLARE_GATEWAY_NAME;
 
     expect(() => getLanguageModel()).toThrow(
@@ -115,8 +115,8 @@ describe("getLanguageModel", () => {
     );
   });
 
-  it("does not require CF gateway vars when AI_PROVIDER is openrouter", () => {
-    process.env.AI_PROVIDER = "openrouter";
+  it("does not require CF gateway vars when AI_TEXT_PROVIDER is openrouter", () => {
+    process.env.AI_TEXT_PROVIDER = "openrouter";
     process.env.OPENROUTER_API_KEY = "test-key";
     delete process.env.CLOUDFLARE_ACCOUNT_ID;
     delete process.env.CLOUDFLARE_GATEWAY_NAME;
@@ -125,7 +125,7 @@ describe("getLanguageModel", () => {
   });
 
   it("includes apiKey in gateway config when CLOUDFLARE_API_KEY is set", () => {
-    process.env.AI_PROVIDER = "google";
+    process.env.AI_TEXT_PROVIDER = "google";
     process.env.CLOUDFLARE_API_KEY = "cf-key";
 
     getLanguageModel();
@@ -157,8 +157,8 @@ describe("getEmbeddingModel", () => {
     expect(model).toBe(mockEmbeddingModel);
   });
 
-  it("returns openrouter embedding model when EMBEDDING_PROVIDER is openrouter", () => {
-    process.env.EMBEDDING_PROVIDER = "openrouter";
+  it("returns openrouter embedding model when AI_EMBEDDING_PROVIDER is openrouter", () => {
+    process.env.AI_EMBEDDING_PROVIDER = "openrouter";
 
     const { createOpenAI } = jest.requireMock("@ai-sdk/openai");
     const model = getEmbeddingModel();
@@ -179,16 +179,16 @@ describe("getEmbeddingModel", () => {
   });
 
   it("returns no provider options for openrouter embeddings", () => {
-    process.env.EMBEDDING_PROVIDER = "openrouter";
+    process.env.AI_EMBEDDING_PROVIDER = "openrouter";
 
     expect(getEmbeddingProviderOptions()).toBeUndefined();
   });
 
   it("throws for unknown embedding provider", () => {
-    process.env.EMBEDDING_PROVIDER = "unknown-provider";
+    process.env.AI_EMBEDDING_PROVIDER = "unknown-provider";
 
     expect(() => getEmbeddingModel()).toThrow(
-      'Unsupported EMBEDDING_PROVIDER "unknown-provider". Valid values: google, openrouter'
+      'Unsupported AI_EMBEDDING_PROVIDER "unknown-provider". Valid values: google, openrouter'
     );
   });
 });
