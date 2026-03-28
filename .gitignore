@@ -49,3 +49,12 @@ notes.txt
 dist
 terminal-commands.md
 .idea
+.swc
+
+# AI Agents
+.agents
+.claude
+.codex
+skills/
+.mcp.json
+skills-lock.json
