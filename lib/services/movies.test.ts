@@ -73,16 +73,16 @@ describe('getMovieRecommendations', () => {
 
     const expectedEmbeddingInput =
       'Participant 1:\n' +
-      'Favorite movie: Inception\n' +
+      'Favourite movie: Inception\n' +
       'I want to see: new movies\n' +
       'Mood for: inspiring movies\n' +
-      'Favorite film person to be stranded on an island with: Christopher Nolan\n' +
+      'Favourite film person to be stranded on an island with: Christopher Nolan\n' +
       '\n' +
       'Participant 2:\n' +
-      'Favorite movie: The Lion King\n' +
+      'Favourite movie: The Lion King\n' +
       'I want to see: classic movies\n' +
       'Mood for: fun movies\n' +
-      'Favorite film person to be stranded on an island with: Morgan Freeman\n' +
+      'Favourite film person to be stranded on an island with: Morgan Freeman\n' +
       '\n' +
       'Time available for all participants: 3 hours'
 

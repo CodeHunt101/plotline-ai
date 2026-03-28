@@ -33,7 +33,8 @@ PlotlineAI is a group-oriented movie recommendation system that combines AI and 
 ## 🛠️ Tech Stack
 
 ### Core Technologies
-- **Frontend**: Next.js 15, React 19, TypeScript
+
+- **Frontend**: Next.js 16, React 19, TypeScript
 - **Styling**: Tailwind CSS, DaisyUI
 - **AI/ML**: OpenAI API (embeddings and chat completions)
 - **Database**: Supabase (movie data and embeddings)
@@ -41,6 +42,7 @@ PlotlineAI is a group-oriented movie recommendation system that combines AI and 
 - **Testing**: Jest, React Testing Library
 
 ### External APIs
+
 - **TMDB**: Movie poster fetching
 - **OpenAI**: AI recommendations
 - **Supabase**: Data storage and vector similarity search
@@ -48,7 +50,8 @@ PlotlineAI is a group-oriented movie recommendation system that combines AI and 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js (v18.18.0 or higher)
+
+- Node.js (v22.13.1 or higher)
 - npm, yarn, or pnpm
 - API keys for TMDB, OpenAI, and Supabase
 - Supabase database with pgvector extension enabled
@@ -56,12 +59,14 @@ PlotlineAI is a group-oriented movie recommendation system that combines AI and 
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/CodeHunt101/plotline-ai.git
 cd plotline-ai
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 # or
@@ -73,6 +78,7 @@ pnpm install
 3. Configure environment variables:
 
 Create `.env.local` for the Next.js app:
+
 ```env
 NEXT_PUBLIC_TMBD_ACCESS_TOKEN=your_tmdb_access_token
 NEXT_PUBLIC_OPENAI_WORKER_URL=your_openai_worker_url (optional)
@@ -80,6 +86,7 @@ NEXT_PUBLIC_SUPABASE_WORKER_URL=your_supabase_worker_url (optional)
 ```
 
 Create `.dev.vars` for Cloudflare workers:
+
 ```env
 NEXT_PUBLIC_OPENAI_API_KEY=your_openai_api_key
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
@@ -129,6 +136,7 @@ $$;
 ### Development
 
 1. Start the Next.js development server:
+
 ```bash
 npm run dev
 # or
@@ -140,11 +148,13 @@ pnpm dev
 2. Launch Cloudflare Workers:
 
 For OpenAI worker:
+
 ```bash
 npx wrangler dev --config wrangler.openai.toml
 ```
 
 For Supabase worker:
+
 ```bash
 npx wrangler dev --config wrangler.supabase.toml
 ```
@@ -161,11 +171,13 @@ npm test
 ### Deployment
 
 1. Deploy Next.js app to Vercel:
+
 ```bash
 vercel
 ```
 
 2. Deploy Cloudflare Workers:
+
 ```bash
 # Deploy OpenAI worker
 npx wrangler deploy --config wrangler.openai.toml
@@ -207,18 +219,21 @@ plotline-ai/
 The application leverages two Cloudflare Workers for enhanced security and performance:
 
 ### OpenAI Worker
+
 - Handles all OpenAI API interactions
 - Manages embeddings and chat completions
 - Ensures API key security
 - Rate limiting and error handling
 
 ### Supabase Worker
+
 - Manages database operations
 - Performs vector similarity searches
 - Handles data seeding and updates
 - Connection pooling and query optimisation
 
 ### Benefits
+
 - Enhanced security through API key protection
 - Improved performance via edge computing
 - Better scalability and reliability
@@ -227,6 +242,7 @@ The application leverages two Cloudflare Workers for enhanced security and perfo
 ## ⚠️ AI Limitations
 
 Please note that PlotlineAI uses artificial intelligence for movie recommendations, and while it strives for accuracy:
+
 - Recommendations may not always perfectly match group preferences
 - Movie information and details might occasionally be incomplete or imprecise
 - The system works best with clear, detailed input from all participants

@@ -11,11 +11,11 @@ export const getMovieRecommendations = async (
       movieData.participantsData
         .map(
           (data, index) =>
-            `Participant ${index + 1}:\nFavorite movie: ${
+            `Participant ${index + 1}:\nFavourite movie: ${
               data.favouriteMovie
             }\nI want to see: ${data.movieType} movies\nMood for: ${
               data.moodType
-            } movies \nFavorite film person to be stranded on an island with: ${
+            } movies \nFavourite film person to be stranded on an island with: ${
               data.favouriteFilmPerson
             }\n`
         )
