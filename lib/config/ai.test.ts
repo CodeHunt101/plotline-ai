@@ -1,4 +1,9 @@
-import { getLanguageModel, getEmbeddingModel, getEmbeddingProviderOptions } from "./ai";
+import {
+  getLanguageModel,
+  getEmbeddingModel,
+  getEmbeddingProviderOptions,
+  getEmbeddingDimensions,
+} from "./ai";
 
 const mockAiGatewayFn = jest.fn((model) => model);
 const mockCreateAiGateway = jest.fn(() => mockAiGatewayFn);
@@ -10,23 +15,14 @@ jest.mock("ai-gateway-provider", () => ({
 
 const mockGoogleModel = { provider: "google", modelId: "gemini-2.5-flash" };
 const mockOpenrouterModel = { provider: "openrouter", modelId: "minimax/minimax-m2.5:free" };
-const mockOpenrouterEmbeddingModel = {
-  provider: "openrouter",
-  modelId: "nvidia/llama-nemotron-embed-vl-1b-v2:free",
-};
 const mockEmbeddingModel = { provider: "google", modelId: "gemini-embedding-001" };
 
 const mockOpenaiCall = jest.fn(() => mockOpenrouterModel);
-const mockOpenaiEmbeddingCall = jest.fn(() => mockOpenrouterEmbeddingModel);
 const mockGoogleCall = jest.fn(() => mockGoogleModel);
 const mockEmbeddingCall = jest.fn(() => mockEmbeddingModel);
 
 jest.mock("@ai-sdk/openai", () => ({
-  createOpenAI: jest.fn(() => {
-    const fn = mockOpenaiCall;
-    (fn as unknown as { embedding: jest.Mock }).embedding = mockOpenaiEmbeddingCall;
-    return fn;
-  }),
+  createOpenAI: jest.fn(() => mockOpenaiCall),
 }));
 
 jest.mock("@ai-sdk/google", () => ({
@@ -142,7 +138,6 @@ describe("getEmbeddingModel", () => {
     process.env = {
       ...originalEnv,
       GOOGLE_GENERATIVE_AI_API_KEY: "test-key",
-      OPENROUTER_API_KEY: "openrouter-key",
     };
   });
 
@@ -157,19 +152,10 @@ describe("getEmbeddingModel", () => {
     expect(model).toBe(mockEmbeddingModel);
   });
 
-  it("returns openrouter embedding model when AI_EMBEDDING_PROVIDER is openrouter", () => {
-    process.env.AI_EMBEDDING_PROVIDER = "openrouter";
-
-    const { createOpenAI } = jest.requireMock("@ai-sdk/openai");
-    const model = getEmbeddingModel();
-
-    expect(createOpenAI).toHaveBeenCalledWith(
-      expect.objectContaining({ baseURL: "https://openrouter.ai/api/v1" })
-    );
-    expect(mockOpenaiEmbeddingCall).toHaveBeenCalledWith(
-      "nvidia/llama-nemotron-embed-vl-1b-v2:free"
-    );
-    expect(model).toBe(mockOpenrouterEmbeddingModel);
+  it("respects GOOGLE_EMBEDDING_MODEL override", () => {
+    process.env.GOOGLE_EMBEDDING_MODEL = "gemini-embedding-002";
+    getEmbeddingModel();
+    expect(mockEmbeddingCall).toHaveBeenCalledWith("gemini-embedding-002");
   });
 
   it("returns google-specific embedding provider options", () => {
@@ -177,18 +163,10 @@ describe("getEmbeddingModel", () => {
       google: { outputDimensionality: 768 },
     });
   });
+});
 
-  it("returns no provider options for openrouter embeddings", () => {
-    process.env.AI_EMBEDDING_PROVIDER = "openrouter";
-
-    expect(getEmbeddingProviderOptions()).toBeUndefined();
-  });
-
-  it("throws for unknown embedding provider", () => {
-    process.env.AI_EMBEDDING_PROVIDER = "unknown-provider";
-
-    expect(() => getEmbeddingModel()).toThrow(
-      'Unsupported AI_EMBEDDING_PROVIDER "unknown-provider". Valid values: google, openrouter'
-    );
+describe("getEmbeddingDimensions", () => {
+  it("always returns 768 (Google Gemini)", () => {
+    expect(getEmbeddingDimensions()).toBe(768);
   });
 });

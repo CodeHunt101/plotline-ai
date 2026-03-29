@@ -12,7 +12,7 @@ interface Env {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 } as const;
 
@@ -46,6 +46,21 @@ async function handleisMovieEmbeddingsTableEmpty(supabase: any): Promise<Respons
   }
 
   return new Response(JSON.stringify({ isEmpty: existingData.length === 0 }), {
+    headers: corsHeaders,
+  });
+}
+
+async function handleTruncateMovies(supabase: any): Promise<Response> {
+  const { error } = await supabase.from("movies_4").delete().neq("id", 0);
+
+  if (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: corsHeaders,
+    });
+  }
+
+  return new Response(JSON.stringify({ success: true }), {
     headers: corsHeaders,
   });
 }
@@ -91,6 +106,8 @@ export default {
           return await handleInsertMovies(request, supabase);
         case "/api/match-movies":
           return await handleMatchMovies(request, supabase);
+        case "/api/truncate-movies":
+          return await handleTruncateMovies(supabase);
         default:
           return new Response(JSON.stringify({ error: "Endpoint not found" }), {
             status: 404,

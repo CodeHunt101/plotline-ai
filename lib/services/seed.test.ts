@@ -3,7 +3,6 @@ import path from "path";
 import { SUPABASE_WORKER_URL } from "@/config/supabase";
 import { seedMovieEmbeddings, splitMovieContentIntoChunks } from "./seed";
 
-// Mock external dependencies
 jest.mock("fs", () => ({
   promises: {
     access: jest.fn(),
@@ -16,14 +15,6 @@ const mockFs = jest.mocked(require("fs").promises);
 
 jest.mock("path", () => ({
   join: jest.fn(),
-}));
-
-jest.mock("langchain/text_splitter", () => ({
-  RecursiveCharacterTextSplitter: jest.fn().mockImplementation(() => ({
-    createDocuments: jest
-      .fn()
-      .mockResolvedValue([{ pageContent: "chunk1" }, { pageContent: "chunk2" }]),
-  })),
 }));
 
 jest.mock("@/services/embeddings", () => ({
@@ -41,7 +32,6 @@ jest.mock("@/config/ai", () => ({
   })),
 }));
 
-// Mock fetch globally for Supabase worker calls
 global.fetch = jest.fn();
 
 import { embed } from "ai";
@@ -52,9 +42,9 @@ describe("splitMovieContentIntoChunks", () => {
     (path.join as jest.Mock).mockImplementation((...args: string[]) => args.join("/"));
   });
 
-  it("should successfully split content into chunks", async () => {
-    const mockContent = "Test movie content";
-    const mockChunks = [{ pageContent: "chunk1" }, { pageContent: "chunk2" }];
+  it("should split content on double newlines into one chunk per movie", async () => {
+    const mockContent =
+      "Movie A: 2024 | PG-13 | 2h | 7.0\nSynopsis A\n\nMovie B: 2023 | R | 1h 30m | 8.0\nSynopsis B";
 
     mockFs.access.mockResolvedValueOnce(undefined);
     mockFs.readFile.mockResolvedValueOnce(mockContent);
@@ -63,7 +53,21 @@ describe("splitMovieContentIntoChunks", () => {
 
     expect(path.join).toHaveBeenCalledWith(expect.any(String), "public", "test/path");
     expect(fs.readFile).toHaveBeenCalledWith(expect.any(String), "utf-8");
-    expect(result).toEqual(mockChunks);
+    expect(result).toEqual([
+      { pageContent: "Movie A: 2024 | PG-13 | 2h | 7.0\nSynopsis A" },
+      { pageContent: "Movie B: 2023 | R | 1h 30m | 8.0\nSynopsis B" },
+    ]);
+  });
+
+  it("should filter out empty chunks from extra blank lines", async () => {
+    const mockContent = "Movie A\n\n\n\nMovie B\n\n";
+
+    mockFs.access.mockResolvedValueOnce(undefined);
+    mockFs.readFile.mockResolvedValueOnce(mockContent);
+
+    const result = await splitMovieContentIntoChunks("test/path");
+
+    expect(result).toEqual([{ pageContent: "Movie A" }, { pageContent: "Movie B" }]);
   });
 
   it("should throw error if file not found", async () => {
@@ -79,6 +83,9 @@ describe("seedMovieEmbeddings", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
+    mockFs.access.mockResolvedValue(undefined);
+    mockFs.readFile.mockResolvedValue("chunk1\n\nchunk2");
+    (path.join as jest.Mock).mockImplementation((...args: string[]) => args.join("/"));
   });
 
   afterEach(() => {
@@ -100,19 +107,16 @@ describe("seedMovieEmbeddings", () => {
   });
 
   it("should successfully seed embeddings", async () => {
-    // Mock table empty check
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ isEmpty: true }),
     });
 
-    // Mock embed() for both chunks
     const mockEmbedding = [1, 2, 3];
     (embed as jest.Mock)
       .mockResolvedValueOnce({ embedding: mockEmbedding })
       .mockResolvedValueOnce({ embedding: mockEmbedding });
 
-    // Mock batch storage
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ success: true }),
@@ -126,14 +130,73 @@ describe("seedMovieEmbeddings", () => {
       count: 2,
     });
 
-    // Verify embed was called for each chunk
     expect(embed).toHaveBeenCalledTimes(2);
 
-    // Verify batch storage call
     expect(fetch).toHaveBeenCalledWith(
       `${SUPABASE_WORKER_URL}/api/insert-movies`,
       expect.any(Object)
     );
+  });
+
+  it("should truncate and reseed when force is true", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    });
+
+    const mockEmbedding = [1, 2, 3];
+    (embed as jest.Mock)
+      .mockResolvedValueOnce({ embedding: mockEmbedding })
+      .mockResolvedValueOnce({ embedding: mockEmbedding });
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    });
+
+    const result = await seedMovieEmbeddings(true);
+
+    expect(result).toEqual({
+      success: true,
+      message: "Embeddings created and stored successfully",
+      count: 2,
+    });
+
+    expect(fetch).toHaveBeenCalledWith(`${SUPABASE_WORKER_URL}/api/truncate-movies`, {
+      method: "DELETE",
+    });
+  });
+
+  it("should not check emptiness when force is true", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    });
+
+    (embed as jest.Mock)
+      .mockResolvedValueOnce({ embedding: [1, 2, 3] })
+      .mockResolvedValueOnce({ embedding: [1, 2, 3] });
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    });
+
+    await seedMovieEmbeddings(true);
+
+    expect(fetch).not.toHaveBeenCalledWith(
+      `${SUPABASE_WORKER_URL}/api/check-empty`,
+      expect.anything()
+    );
+  });
+
+  it("should handle errors when truncation fails", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+    });
+
+    await expect(seedMovieEmbeddings(true)).rejects.toThrow("Failed to truncate table: 500");
   });
 
   it("should handle errors in table check", async () => {
@@ -146,13 +209,11 @@ describe("seedMovieEmbeddings", () => {
   });
 
   it("should handle errors in embedding creation", async () => {
-    // Mock table empty check
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ isEmpty: true }),
     });
 
-    // Mock embed() throwing for one chunk
     (embed as jest.Mock).mockRejectedValueOnce(new Error("Embedding API error"));
 
     await expect(seedMovieEmbeddings()).rejects.toThrow(
@@ -161,18 +222,15 @@ describe("seedMovieEmbeddings", () => {
   });
 
   it("should handle errors in batch storage", async () => {
-    // Mock table empty check
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ isEmpty: true }),
     });
 
-    // Mock successful embedding creation for both chunks
     (embed as jest.Mock)
       .mockResolvedValueOnce({ embedding: [1, 2, 3] })
       .mockResolvedValueOnce({ embedding: [1, 2, 3] });
 
-    // Mock batch storage error
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
       status: 500,
@@ -182,18 +240,15 @@ describe("seedMovieEmbeddings", () => {
   });
 
   it("should handle batch storage API errors", async () => {
-    // Mock table empty check
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ isEmpty: true }),
     });
 
-    // Mock successful embedding creation for both chunks
     (embed as jest.Mock)
       .mockResolvedValueOnce({ embedding: [1, 2, 3] })
       .mockResolvedValueOnce({ embedding: [1, 2, 3] });
 
-    // Mock batch storage API error response
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ error: "Database error" }),

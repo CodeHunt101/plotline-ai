@@ -14,8 +14,8 @@ Participants' preferences
         v
   +-----------+       +-----------------+       +------------------+
   |  Embed    | ----> |  Vector Search  | ----> |  LLM Re-ranking  |
-  | (AI SDK)  |       | (Supabase +     |       | (Gemini / Open-  |
-  |           |       |  pgvector)      |       |  Router)         |
+  | (Gemini)  |       | (Supabase +     |       | (OpenRouter /    |
+  |           |       |  pgvector)      |       |  Gemini)         |
   +-----------+       +-----------------+       +------------------+
                                                         |
                                                         v
@@ -36,7 +36,7 @@ The group also sets how much **time** is available for the session.
 
 ### 2. Embed
 
-All preferences are concatenated into a single text blob and sent to `POST /api/embeddings`. The server calls an embedding model (OpenRouter model or Google Gemini) via the Vercel AI SDK. The returned vector is **L2-normalised** on the client before the next step.
+All preferences are concatenated into a single text blob and sent to `POST /api/embeddings`. The server calls **Google Gemini** (`gemini-embedding-001`) via the Vercel AI SDK to produce a 768-dimensional vector. The returned vector is **L2-normalised** on the client before the next step.
 
 ### 3. Retrieve -- vector similarity search
 
@@ -46,7 +46,7 @@ The movie corpus lives in `public/constants/movies.txt` and is chunked and embed
 
 ### 4. Rank -- language model re-ranking
 
-The matched movie content is split into individual entries and formatted as a "Movie List Context". This context, together with the original participant preferences, is sent to `POST /api/movies`, which calls a language model (Gemini 2.5 Flash by default, or a model via OpenRouter) through the Cloudflare AI Gateway.
+The matched movie content is split into individual entries and formatted as a "Movie List Context". This context, together with the original participant preferences, is sent to `POST /api/movies`, which calls a language model (**MiniMax M2.5 via OpenRouter** by default, or Google Gemini 2.5 Flash as an alternative) to rank and filter the candidates.
 
 A structured system prompt instructs the model to return between 1 and 10 movies as JSON, filtered by time constraints, era preference, mood, and genre fit.
 
@@ -56,16 +56,16 @@ If the LLM response cannot be parsed as valid JSON, a **heuristic fallback** (`l
 
 ## Tech Stack
 
-| Layer       | Technology                                                |
-| ----------- | --------------------------------------------------------- |
-| Framework   | Next.js 16 (App Router, Turbopack)                        |
-| UI          | React 19, Tailwind CSS, DaisyUI                           |
-| AI          | Vercel AI SDK, Google Gemini, OpenRouter                  |
-| Gateway     | Cloudflare AI Gateway                                     |
-| Database    | Supabase (Postgres + pgvector)                            |
-| Edge worker | Cloudflare Workers                                        |
-| Testing     | Jest 29, React Testing Library                            |
-| Tooling     | TypeScript (strict), ESLint, Prettier, Husky, lint-staged |
+| Layer       | Technology                                                  |
+| ----------- | ----------------------------------------------------------- |
+| Framework   | Next.js 16 (App Router, Turbopack)                          |
+| UI          | React 19, Tailwind CSS, DaisyUI                             |
+| AI          | Vercel AI SDK, Google Gemini (embeddings), OpenRouter (LLM) |
+| Gateway     | Cloudflare AI Gateway (Google provider path only)           |
+| Database    | Supabase (Postgres + pgvector)                              |
+| Edge worker | Cloudflare Workers                                          |
+| Testing     | Jest 29, React Testing Library                              |
+| Tooling     | TypeScript (strict), ESLint, Prettier, Husky, lint-staged   |
 
 ## Getting Started
 
@@ -90,18 +90,19 @@ pnpm install
 Create **`.env.local`** for the Next.js app:
 
 ```env
-# AI providers: "openrouter" or "google"
-AI_TEXT_PROVIDER=google
+# AI text provider: "openrouter" (default) or "google"
+AI_TEXT_PROVIDER=openrouter
+# AI embedding provider: always "google"
 AI_EMBEDDING_PROVIDER=google
 
-# Google Gemini
+# Google Gemini (required for embeddings; also for text when AI_TEXT_PROVIDER=google)
 GOOGLE_GENERATIVE_AI_API_KEY=
 
-# OpenRouter (only needed when AI_TEXT_PROVIDER or AI_EMBEDDING_PROVIDER is "openrouter")
+# OpenRouter (required when AI_TEXT_PROVIDER=openrouter)
 OPENROUTER_API_KEY=
-OPENROUTER_EMBEDDING_MODEL=            # optional, defaults to nvidia/llama-nemotron-embed-vl-1b-v2:free
+OPENROUTER_LANGUAGE_MODEL=             # optional, defaults to minimax/minimax-m2.5:free
 
-# Cloudflare AI Gateway (required for Google provider path)
+# Cloudflare AI Gateway (required only when AI_TEXT_PROVIDER=google)
 CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_GATEWAY_NAME=
 CLOUDFLARE_API_KEY=                    # optional
@@ -122,7 +123,7 @@ SUPABASE_API_KEY=
 
 ### Database setup
 
-Enable the pgvector extension and create the movies table. The vector dimension must match your embedding provider -- **768** for Google Gemini (default), **1536** for OpenAI-compatible models.
+Enable the pgvector extension and create the movies table. The embedding provider is Google Gemini (`gemini-embedding-001`), which produces **768-dimensional** vectors.
 
 ```sql
 create extension vector;
@@ -156,6 +157,13 @@ as $$
 $$;
 ```
 
+To verify the dimensions of an existing table:
+
+```sql
+select atttypmod from pg_attribute
+where attrelid = 'movies_4'::regclass and attname = 'embedding';
+```
+
 ### Development
 
 Start the Next.js dev server and the Supabase worker:
@@ -167,7 +175,9 @@ npx wrangler dev --config wrangler.supabase.toml
 
 Then open [http://localhost:3000](http://localhost:3000).
 
-To seed the movie corpus into Supabase on first run, visit `/api/embeddings-seed` or call `GET /api/embeddings-seed` directly. This chunks `public/constants/movies.txt`, embeds each chunk, and inserts them into the `movies_4` table if it is empty.
+To seed the movie corpus into Supabase on first run, call `GET /api/embeddings-seed`. This splits `public/constants/movies.txt` on movie boundaries (one entry per embedding), embeds each entry, and inserts them into the `movies_4` table if it is empty.
+
+To force a full reseed (truncates existing data first), call `GET /api/embeddings-seed?force=true`.
 
 ### Testing
 
@@ -247,10 +257,11 @@ The Supabase worker (`workers/supabase-worker.ts`, port 7878) proxies database o
 - `POST /api/insert-movies` -- batch-insert chunked movie data during seeding.
 - `GET /api/check-empty` -- check whether the movies table needs seeding.
 - `POST /api/match-movies` -- run the pgvector similarity RPC and return the top matches.
+- `DELETE /api/truncate-movies` -- delete all rows from the movies table (used by force-reseed).
 
 ### AI Gateway
 
-AI model calls (both embedding and chat) are routed through the **Cloudflare AI Gateway** for logging, caching, rate limiting, and provider failover. The gateway is configured in `lib/config/ai.ts` using the `ai-gateway-provider` package.
+When `AI_TEXT_PROVIDER=google`, text generation calls are routed through the **Cloudflare AI Gateway** for logging, caching, and rate limiting. The gateway is configured in `lib/config/ai.ts` using the `ai-gateway-provider` package. It is not used when `AI_TEXT_PROVIDER=openrouter`.
 
 ## AI Limitations
 

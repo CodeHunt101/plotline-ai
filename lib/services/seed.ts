@@ -1,19 +1,26 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { embed } from "ai";
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { normaliseEmbeddingVector } from "@/services/embeddings";
 import { getEmbeddingModel, getEmbeddingProviderOptions } from "@/config/ai";
 import { SUPABASE_WORKER_URL } from "@/config/supabase";
 
 const BATCH_SIZE = 10;
-const CHUNK_SIZE = 550;
-const CHUNK_OVERLAP = 75;
 
 async function isMovieEmbeddingsTableEmpty() {
   const response = await fetch(`${SUPABASE_WORKER_URL}/api/check-empty`);
   if (!response.ok) {
     throw new Error(`Failed to check if table is empty: ${response.status}`);
+  }
+  return response.json();
+}
+
+async function truncateMovieEmbeddings() {
+  const response = await fetch(`${SUPABASE_WORKER_URL}/api/truncate-movies`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to truncate table: ${response.status}`);
   }
   return response.json();
 }
@@ -56,24 +63,29 @@ async function storeMovieEmbeddingsBatch(batch: unknown[]) {
 }
 
 /**
- * One-shot seed: skips work if the worker reports the embeddings table is non-empty.
- * Chunks `public/{filePath}`, embeds in parallel, and POSTs batches to the worker.
+ * Seeds the movie embeddings table. Skips if already populated unless `force` is true,
+ * in which case the table is truncated first. Splits `public/constants/movies.txt` on
+ * movie boundaries (double newlines), embeds each entry, and POSTs batches to the worker.
  */
-export async function seedMovieEmbeddings() {
+export async function seedMovieEmbeddings(force = false) {
   try {
-    // Check if table is already populated
-    const { isEmpty } = await isMovieEmbeddingsTableEmpty();
-    if (!isEmpty) {
-      return { success: true, message: "Table already populated" };
+    if (force) {
+      await truncateMovieEmbeddings();
+    } else {
+      const { isEmpty } = await isMovieEmbeddingsTableEmpty();
+      if (!isEmpty) {
+        return { success: true, message: "Table already populated" };
+      }
     }
 
     // Split document
     const chunks = await splitMovieContentIntoChunks("constants/movies.txt");
 
-    // Process chunks in parallel with rate limiting
-    const data = await Promise.all(
-      chunks.map((chunk, index) => createChunkEmbedding(chunk, index))
-    );
+    // Process chunks sequentially to avoid exceeding provider rate limits
+    const data: Awaited<ReturnType<typeof createChunkEmbedding>>[] = [];
+    for (let i = 0; i < chunks.length; i++) {
+      data.push(await createChunkEmbedding(chunks[i], i));
+    }
 
     // Insert in batches
     for (let i = 0; i < data.length; i += BATCH_SIZE) {
@@ -92,7 +104,7 @@ export async function seedMovieEmbeddings() {
   }
 }
 
-/** Reads `public/{filePath}` from the process cwd and splits it with overlap for embedding. Throws if the file is missing. */
+/** Reads `public/{filePath}` and splits on double newlines so each movie entry is its own chunk. Throws if the file is missing. */
 export async function splitMovieContentIntoChunks(filePath: string) {
   const absolutePath = path.join(process.cwd(), "public", filePath);
 
@@ -104,10 +116,9 @@ export async function splitMovieContentIntoChunks(filePath: string) {
 
   const fileContent = await fs.readFile(absolutePath, "utf-8");
 
-  const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: CHUNK_SIZE,
-    chunkOverlap: CHUNK_OVERLAP,
-  });
-
-  return splitter.createDocuments([fileContent]);
+  return fileContent
+    .split("\n\n")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((content) => ({ pageContent: content }));
 }

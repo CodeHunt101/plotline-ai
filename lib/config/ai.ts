@@ -8,7 +8,6 @@ const GOOGLE_EMBEDDING_DIMENSIONS = 768;
 const DEFAULT_GOOGLE_LANGUAGE_MODEL = "gemini-2.5-flash";
 const DEFAULT_GOOGLE_EMBEDDING_MODEL = "gemini-embedding-001";
 const DEFAULT_OPENROUTER_LANGUAGE_MODEL = "minimax/minimax-m2.5:free";
-const DEFAULT_OPENROUTER_EMBEDDING_MODEL = "nvidia/llama-nemotron-embed-vl-1b-v2:free";
 
 function getGateway() {
   const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -52,44 +51,22 @@ export function getLanguageModel(): LanguageModel {
   }
 }
 
-/** Embedding model from `AI_EMBEDDING_PROVIDER` (`google` or `openrouter`). */
+/** Embedding model using Google Gemini (`gemini-embedding-001` by default). */
 export function getEmbeddingModel() {
-  const provider = process.env.AI_EMBEDDING_PROVIDER ?? "google";
-
-  switch (provider) {
-    case "google": {
-      const google = createGoogleGenerativeAI({
-        apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-      });
-      return google.embedding(process.env.GOOGLE_EMBEDDING_MODEL ?? DEFAULT_GOOGLE_EMBEDDING_MODEL);
-    }
-
-    case "openrouter": {
-      const openrouter = createOpenAI({
-        baseURL: "https://openrouter.ai/api/v1",
-        apiKey: process.env.OPENROUTER_API_KEY,
-      });
-      return openrouter.embedding(
-        process.env.OPENROUTER_EMBEDDING_MODEL ?? DEFAULT_OPENROUTER_EMBEDDING_MODEL
-      );
-    }
-
-    default:
-      throw new Error(
-        `Unsupported AI_EMBEDDING_PROVIDER "${provider}". Valid values: google, openrouter`
-      );
-  }
+  const google = createGoogleGenerativeAI({
+    apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+  });
+  return google.embedding(process.env.GOOGLE_EMBEDDING_MODEL ?? DEFAULT_GOOGLE_EMBEDDING_MODEL);
 }
 
-/** Extra provider options for Google embeddings (fixed output dimensionality); `undefined` for OpenRouter. */
+/** Provider options for Google embeddings (fixed output dimensionality). */
 export function getEmbeddingProviderOptions() {
-  const provider = process.env.AI_EMBEDDING_PROVIDER ?? "google";
+  return {
+    google: { outputDimensionality: GOOGLE_EMBEDDING_DIMENSIONS },
+  };
+}
 
-  if (provider === "google") {
-    return {
-      google: { outputDimensionality: GOOGLE_EMBEDDING_DIMENSIONS },
-    };
-  }
-
-  return undefined;
+/** Returns the vector dimensions for the embedding model: always 768 (Google Gemini). */
+export function getEmbeddingDimensions(): number {
+  return GOOGLE_EMBEDDING_DIMENSIONS;
 }
