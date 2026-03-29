@@ -52,7 +52,7 @@ export function getLanguageModel(): LanguageModel {
 }
 
 export function getEmbeddingModel() {
-  const provider = process.env.AI_EMBEDDING_PROVIDER ?? "openrouter";
+  const provider = process.env.AI_EMBEDDING_PROVIDER ?? "google";
 
   switch (provider) {
     case "google": {

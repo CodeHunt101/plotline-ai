@@ -3,27 +3,59 @@ import "./globals.css";
 import { carterOne, robotoSlab } from "./fonts";
 import { MovieProvider } from "@/contexts/MovieContext";
 import Header from "@/components/features/Header";
+import {
+  SITE_DESCRIPTION,
+  SITE_LANGUAGE,
+  SITE_LOCALE,
+  SITE_NAME,
+  SITE_URL,
+} from "@/lib/config/site";
 
 export const metadata: Metadata = {
-  title: "PlotlineAI",
-  description:
-    "A Next.js-powered movie recommendation app that helps groups find the perfect movie for their next watch party. PlotlineAI uses AI to analyse each participant's movie preferences and suggests films that everyone will enjoy.",
+  metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
+  title: {
+    default: SITE_NAME,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
   authors: [{ name: "Harold Torres Marino" }],
   creator: "Harold Torres Marino",
   publisher: "Harold Torres Marino",
-  metadataBase: new URL("https://plotline-ai.vercel.app"),
+  category: "entertainment",
+  alternates: {
+    canonical: "/",
+  },
+  referrer: "origin-when-cross-origin",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      noimageindex: false,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   openGraph: {
     type: "website",
-    url: "https://plotline-ai.vercel.app",
-    title: "PlotlineAI",
-    description:
-      "A Next.js-powered movie recommendation app that helps groups find the perfect movie for their next watch party. PlotlineAI uses AI to analyse each participant's movie preferences and suggests films that everyone will enjoy.",
+    locale: SITE_LOCALE,
+    url: SITE_URL,
+    title: SITE_NAME,
+    siteName: SITE_NAME,
+    description: SITE_DESCRIPTION,
   },
   twitter: {
     card: "summary_large_image",
-    title: "PlotlineAI",
-    description:
-      "A Next.js-powered movie recommendation app that helps groups find the perfect movie for their next watch party. PlotlineAI uses AI to analyse each participant's movie preferences and suggests films that everyone will enjoy.",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
   },
 };
 
@@ -33,7 +65,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang={SITE_LANGUAGE}>
       <body
         className={`${carterOne} ${robotoSlab} antialiased bg-base-100 min-h-screen flex flex-col justify-center items-center py-4`}
       >

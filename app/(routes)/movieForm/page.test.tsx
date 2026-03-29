@@ -1,7 +1,8 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useRouter } from "next/navigation";
 import { MovieContext, MovieProvider } from "@/contexts/MovieContext";
-import MovieForm from "./page";
+import MovieForm from "./MovieFormClient";
+import { metadata } from "./page";
 import { ParticipantData } from "@/types/movie";
 import { getMovieRecommendations } from "@/services/movies";
 
@@ -24,6 +25,18 @@ jest.mock("react", () => ({
   },
   useState: jest.requireActual("react").useState,
 }));
+
+describe("movieForm page metadata", () => {
+  it("exports route metadata", () => {
+    expect(metadata.title).toBeTruthy();
+    expect(metadata.description).toBeTruthy();
+    expect(metadata.alternates?.canonical).toBe("/movieForm");
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
+    });
+  });
+});
 
 describe("MovieForm", () => {
   const mockRouter = { push: jest.fn() };

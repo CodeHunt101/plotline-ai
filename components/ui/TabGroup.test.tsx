@@ -24,6 +24,12 @@ describe("TabGroup component", () => {
     const { getByRole } = render(<TabGroup {...defaultProps} />);
     const activeTab = getByRole("tab", { name: "Option1" });
     expect(activeTab).toHaveClass("tab-active");
+    expect(activeTab).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("sets aria-selected false on inactive tabs", () => {
+    const { getByRole } = render(<TabGroup {...defaultProps} />);
+    expect(getByRole("tab", { name: "Option2" })).toHaveAttribute("aria-selected", "false");
   });
 
   it("calls onChange when tab is clicked", () => {

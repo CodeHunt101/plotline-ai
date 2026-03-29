@@ -17,6 +17,7 @@ const TabGroup = ({
           key={option}
           role="tab"
           type="button"
+          aria-selected={value === option}
           className={`tab bg-info ${value === option ? "tab-active" : ""}`}
           onClick={() => onChange(option)}
         >

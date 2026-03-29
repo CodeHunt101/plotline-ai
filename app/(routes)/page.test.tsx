@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 // import { headers } from 'next/headers'
 // import { initialiseEmbeddingsStorage } from '@/services/embeddings'
 import MovieNightForm from "./page";
+import { metadata } from "./page";
 
 // // Mock the dependencies
 // jest.mock('next/headers', () => ({
@@ -35,6 +36,21 @@ describe("MovieNightForm Component", () => {
 
     // Assert that ParticipantsSetup is rendered
     expect(screen.getByTestId("participants-setup")).toBeInTheDocument();
+  });
+
+  it("exports indexable route metadata", () => {
+    expect(metadata.title).toBeTruthy();
+    expect(metadata.description).toBeTruthy();
+    expect(metadata.alternates?.canonical).toBe("/");
+  });
+
+  it("renders homepage structured data", async () => {
+    const { container } = render(await MovieNightForm());
+
+    const structuredData = container.querySelector('script[type="application/ld+json"]');
+
+    expect(structuredData).toBeInTheDocument();
+    expect(structuredData?.textContent).toContain('"@type":"WebApplication"');
   });
 
   // it('shows error message when initialisation fails', async () => {

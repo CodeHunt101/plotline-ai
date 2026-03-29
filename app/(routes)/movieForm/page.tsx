@@ -1,108 +1,27 @@
-"use client";
+import type { Metadata } from "next";
+import MovieFormClient from "./MovieFormClient";
 
-import useMovieForm from "@/components/features/hooks/useMovieForm";
-import MovieFormFields from "@/components/features/MovieFormFields";
-import { useMovieContext } from "@/contexts/MovieContext";
-import { getMovieRecommendations } from "@/lib/services/movies";
-import { MovieFormData } from "@/types/movie";
-import { useRouter } from "next/navigation";
-import { useActionState, useState } from "react";
-
-const INITIAL_FORM_STATE: MovieFormData = {
-  favouriteMovie: "",
-  favouriteFilmPerson: "",
-  movieType: "new",
-  moodType: "fun",
-};
-
-const MovieForm = () => {
-  const router = useRouter();
-  const {
-    timeAvailable,
-    participantsData,
-    totalParticipants,
-    setParticipantsData,
-    setRecommendations,
-  } = useMovieContext();
-
-  const [currentParticipant, setCurrentParticipant] = useState(1);
-  const {
-    formData,
-    validationErrors,
-    handleTypeChange,
-    handleTextChange,
-    validateForm,
-    resetForm,
-  } = useMovieForm(INITIAL_FORM_STATE);
-
-  const handleFormSubmission = async (formDataObj: FormData) => {
-    const favouriteMovie = formDataObj.get("favouriteMovie")?.toString() || "";
-    const favouriteFilmPerson = formDataObj.get("favouriteFilmPerson")?.toString() || "";
-
-    if (!validateForm({ favouriteMovie, favouriteFilmPerson })) {
-      throw new Error("Please fill out all required fields");
-    }
-
-    const currentData = { ...formData, favouriteMovie, favouriteFilmPerson };
-    const updatedParticipantsData = [...participantsData, currentData];
-
-    if (currentParticipant < totalParticipants) {
-      setParticipantsData(updatedParticipantsData);
-      setCurrentParticipant((prev) => prev + 1);
-      resetForm();
-      return null;
-    }
-
-    const recommendedMovies = await getMovieRecommendations({
-      timeAvailable,
-      participantsData: updatedParticipantsData,
-    });
-
-    setParticipantsData(updatedParticipantsData);
-    setRecommendations(recommendedMovies);
-    router.push("/recommendations");
-    return null;
-  };
-
-  const [error, submitAction, isPending] = useActionState(
-    async (_prevState: unknown, formDataObj: FormData) => {
-      try {
-        return await handleFormSubmission(formDataObj);
-      } catch (err) {
-        return err instanceof Error ? err.message : "An unexpected error occurred";
-      }
+export const metadata: Metadata = {
+  title: "Your movie preferences",
+  description:
+    "Tell PlotlineAI each participant's favourite films and moods so we can match your group with tailored recommendations.",
+  alternates: {
+    canonical: "/movieForm",
+  },
+  robots: {
+    index: false,
+    follow: true,
+    googleBot: {
+      index: false,
+      follow: true,
+      noimageindex: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
     },
-    null
-  );
-
-  return (
-    <>
-      {isPending ? (
-        <div className="flex flex-col items-center justify-center  h-[35rem] gap-5">
-          <div className="text-3xl">Loading movies...</div>
-          <div className="loading loading-bars loading-lg"></div>
-        </div>
-      ) : (
-        <>
-          <h2 className="text-2xl mb-4 text-center">Person #{currentParticipant}</h2>
-          <form action={submitAction} className="space-y-6">
-            <MovieFormFields
-              formData={formData}
-              validationErrors={validationErrors}
-              handleTextChange={handleTextChange}
-              handleTypeChange={handleTypeChange}
-            />
-
-            <button type="submit" className="btn btn-primary block w-full text-3xl">
-              {currentParticipant === totalParticipants ? "Get Movie" : "Next"}
-            </button>
-
-            {error && <p className="text-red-500 text-center">{error}</p>}
-          </form>
-        </>
-      )}
-    </>
-  );
+  },
 };
 
-export default MovieForm;
+export default function MovieFormPage() {
+  return <MovieFormClient />;
+}

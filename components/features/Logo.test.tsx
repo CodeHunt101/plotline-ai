@@ -7,14 +7,9 @@ jest.mock("next/navigation", () => ({
   usePathname: jest.fn(),
 }));
 
-// Mock the next/image component
 jest.mock("next/image", () => ({
   __esModule: true,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  default: (props: any) => {
-    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-    return <img {...props} />;
-  },
+  default: jest.requireActual("next/image").default,
 }));
 
 // Mock the image import

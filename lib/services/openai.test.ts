@@ -101,6 +101,17 @@ describe("OpenAI Service", () => {
       );
     });
 
+    it("should throw a generic message when /api/movies fails without a string error body", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ error: { code: "upstream" } }),
+      });
+
+      await expect(getChatCompletion(mockText, mockQuery)).rejects.toThrow(
+        "Failed to get movie recommendations"
+      );
+    });
+
     it("should throw when /api/movies succeeds without content", async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,

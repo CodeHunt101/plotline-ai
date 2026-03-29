@@ -1,20 +1,18 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import { useRouter } from "next/navigation";
+import { useRouter, redirect } from "next/navigation";
 import { useMovieContext } from "@/contexts/MovieContext";
 import { searchMoviePoster } from "@/lib/services/tmdb";
-import Recommendations from "./page";
+import Recommendations from "./RecommendationsClient";
+import { metadata } from "./page";
 
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
+  redirect: jest.fn(),
 }));
 
 jest.mock("next/image", () => ({
   __esModule: true,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  default: (props: any) => {
-    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-    return <img {...props} />;
-  },
+  default: jest.requireActual("next/image").default,
 }));
 
 // Mock the movie poster service
@@ -26,6 +24,18 @@ jest.mock("@/contexts/MovieContext", () => ({
   useMovieContext: jest.fn(),
   MovieProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
+
+describe("recommendations page metadata", () => {
+  it("exports route metadata", () => {
+    expect(metadata.title).toBeTruthy();
+    expect(metadata.description).toBeTruthy();
+    expect(metadata.alternates?.canonical).toBe("/recommendations");
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: true,
+    });
+  });
+});
 
 describe("Recommendations Component", () => {
   const mockPush = jest.fn();
@@ -66,7 +76,7 @@ describe("Recommendations Component", () => {
     });
 
     render(<Recommendations />);
-    expect(mockPush).toHaveBeenCalledWith("/");
+    expect(redirect).toHaveBeenCalledWith("/");
   });
 
   it("displays movie information correctly", async () => {
