@@ -1,6 +1,7 @@
 import { MovieRecord } from "@/types/api";
 import { SUPABASE_WORKER_URL } from "@/config/supabase";
 
+/** POSTs to the worker `/api/match-movies` (`match_movies_4` RPC). Returns an empty list when there are no matches or the worker reports an error. */
 export async function matchMoviesByEmbedding(embedding: number[]): Promise<MovieRecord[]> {
   const response = await fetch(`${SUPABASE_WORKER_URL}/api/match-movies`, {
     method: "POST",

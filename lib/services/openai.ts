@@ -1,5 +1,6 @@
 import type { ModelMessage } from "ai";
 
+/** Instructions and JSON schema constraints for the recommendation model. */
 export const systemMessage: ModelMessage = {
   role: "system",
   content: `You are a movie expert. IMPORTANT: Recommend 1-10 movies from the provided Movie List Context that match User Preferences.
@@ -38,6 +39,11 @@ If no matches: { "recommendedMovies": [] }
 `,
 };
 
+/**
+ * Requests structured movie recommendations from `POST /api/movies`.
+ * `text` is the movie-list context; `query` is the user-preferences string echoed into the user message.
+ * Returns nothing when `text` is empty. Throws if the response is not OK or `content` is missing.
+ */
 export async function getChatCompletion(
   text: string,
   query: string,

@@ -1,10 +1,6 @@
 // utils/url.ts
 
-/**
- * Gets the base URL for the application based on the current environment
- * @param headers - Next.js headers object
- * @returns The base URL string
- */
+/** Site origin for absolute URLs on the server; uses `http` for localhost (including production builds against local preview). */
 export function getBaseUrl(headers: Headers): string {
   const host = headers.get("host");
 
@@ -22,12 +18,7 @@ export function getBaseUrl(headers: Headers): string {
   return `https://${host}`;
 }
 
-/**
- * Creates a full URL by combining the base URL with a path
- * @param baseUrl - The base URL of the application
- * @param path - The path to append (optional)
- * @returns The complete URL
- */
+/** Concatenates base and optional path (caller controls trailing slash on `baseUrl`). */
 export function createFullUrl(baseUrl: string, path?: string): string {
   return path ? `${baseUrl}${path}` : baseUrl;
 }

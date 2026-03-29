@@ -1,3 +1,4 @@
+/** Fetches the poster URL for the first TMDb search hit. Requires `NEXT_PUBLIC_TMBD_ACCESS_TOKEN`. Returns nothing on network/API failure. */
 export const searchMoviePoster = async (movieTitle: string) => {
   const options = {
     method: "GET",

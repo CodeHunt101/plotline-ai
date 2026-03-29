@@ -55,6 +55,10 @@ async function storeMovieEmbeddingsBatch(batch: unknown[]) {
   return result;
 }
 
+/**
+ * One-shot seed: skips work if the worker reports the embeddings table is non-empty.
+ * Chunks `public/{filePath}`, embeds in parallel, and POSTs batches to the worker.
+ */
 export async function seedMovieEmbeddings() {
   try {
     // Check if table is already populated
@@ -88,6 +92,7 @@ export async function seedMovieEmbeddings() {
   }
 }
 
+/** Reads `public/{filePath}` from the process cwd and splits it with overlap for embedding. Throws if the file is missing. */
 export async function splitMovieContentIntoChunks(filePath: string) {
   const absolutePath = path.join(process.cwd(), "public", filePath);
 

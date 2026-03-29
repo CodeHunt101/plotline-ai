@@ -8,6 +8,7 @@ import {
   parseMovieRecommendationsResponse,
 } from "@/lib/utils/recommendations";
 
+/** Embeds participant answers, vector-searches similar movies, then asks the LLM for JSON recommendations. Falls back to parsed list content when the model output is invalid. */
 export const getMovieRecommendations = async (
   movieData: ParticipantsMovieData
 ): Promise<MovieRecommendation> => {

@@ -1,5 +1,8 @@
 /* eslint-disable import/no-anonymous-default-export */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+/** Cloudflare Worker: `/api/check-empty`, `/api/insert-movies`, `/api/match-movies` backed by Supabase. */
+
 import { createClient } from "@supabase/supabase-js";
 
 interface Env {

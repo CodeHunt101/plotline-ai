@@ -5,6 +5,7 @@ type RecommendedMovie = MovieRecommendationsResult["recommendedMovies"][number];
 
 const MAX_FALLBACK_RECOMMENDATIONS = 4;
 
+/** Stable empty result for failed or absent model output. */
 export function emptyMovieRecommendations(): MovieRecommendationsResult {
   return { recommendedMovies: [] };
 }
@@ -35,6 +36,10 @@ function getJsonCandidates(raw: string): string[] {
   return [...new Set(candidates.filter(Boolean))];
 }
 
+/**
+ * Parses model output, tolerating markdown fences and leading/trailing noise.
+ * Whitespace-only input yields an empty list. Throws if no candidate parses to valid `{ recommendedMovies }` JSON.
+ */
 export function parseMovieRecommendationsResponse(
   raw: string | null | undefined
 ): MovieRecommendationsResult {
@@ -57,6 +62,7 @@ export function parseMovieRecommendationsResponse(
   throw new Error("Movie recommendations response was not valid JSON");
 }
 
+/** Canonical JSON string for storage/API responses after the same validation as {@link parseMovieRecommendationsResponse}. */
 export function stringifyMovieRecommendationsResponse(raw: string | null | undefined): string {
   return JSON.stringify(parseMovieRecommendationsResponse(raw));
 }
@@ -99,6 +105,7 @@ function parseFallbackMovie(match: Pick<MovieRecord, "content">): RecommendedMov
   };
 }
 
+/** Heuristic titles/years/synopses from raw `content` lines when the LLM JSON is unusable; caps at four items and de-duplicates by title+year. */
 export function fallbackMovieRecommendations(
   matches: Pick<MovieRecord, "content">[]
 ): MovieRecommendationsResult {

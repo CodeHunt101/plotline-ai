@@ -25,6 +25,7 @@ function getGateway() {
   });
 }
 
+/** Text generation model from `AI_TEXT_PROVIDER` (`google` via AI Gateway, or `openrouter`). Missing gateway env vars throw. */
 export function getLanguageModel(): LanguageModel {
   const provider = process.env.AI_TEXT_PROVIDER ?? "google";
 
@@ -51,6 +52,7 @@ export function getLanguageModel(): LanguageModel {
   }
 }
 
+/** Embedding model from `AI_EMBEDDING_PROVIDER` (`google` or `openrouter`). */
 export function getEmbeddingModel() {
   const provider = process.env.AI_EMBEDDING_PROVIDER ?? "google";
 
@@ -79,6 +81,7 @@ export function getEmbeddingModel() {
   }
 }
 
+/** Extra provider options for Google embeddings (fixed output dimensionality); `undefined` for OpenRouter. */
 export function getEmbeddingProviderOptions() {
   const provider = process.env.AI_EMBEDDING_PROVIDER ?? "google";
 
