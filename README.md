@@ -14,8 +14,8 @@ Participants' preferences
         v
   +-----------+       +-----------------+       +------------------+
   |  Embed    | ----> |  Vector Search  | ----> |  LLM Re-ranking  |
-  | (Gemini)  |       | (Supabase +     |       | (OpenRouter /    |
-  |           |       |  pgvector)      |       |  Gemini)         |
+  | (Gemini)  |       | (Supabase +     |       | (Gemini primary, |
+  |           |       |  pgvector)      |       |  MiniMax fallbck) |
   +-----------+       +-----------------+       +------------------+
                                                         |
                                                         v
@@ -46,7 +46,7 @@ The movie corpus lives in `public/constants/movies.txt` and is chunked and embed
 
 ### 4. Rank -- language model re-ranking
 
-The matched movie content is split into individual entries and formatted as a "Movie List Context". This context, together with the original participant preferences, is sent to `POST /api/movies`, which calls a language model (**MiniMax M2.5 via OpenRouter** by default, or Google Gemini 2.5 Flash as an alternative) to rank and filter the candidates.
+The matched movie content is split into individual entries and formatted as a "Movie List Context". This context, together with the original participant preferences, is sent to `POST /api/movies`, which calls **Google Gemini 2.5 Flash** (primary) to rank and filter the candidates. If Google is unavailable or its daily quota is exhausted (HTTP 429/403), the request automatically falls back to **MiniMax M2.5 via OpenRouter** (free tier). Quota errors trigger a 24-hour circuit breaker so subsequent requests skip Google until the quota resets.
 
 A structured system prompt instructs the model to return between 1 and 10 movies as JSON, filtered by time constraints, era preference, mood, and genre fit.
 
@@ -56,16 +56,16 @@ If the LLM response cannot be parsed as valid JSON, a **heuristic fallback** (`l
 
 ## Tech Stack
 
-| Layer       | Technology                                                  |
-| ----------- | ----------------------------------------------------------- |
-| Framework   | Next.js 16 (App Router, Turbopack)                          |
-| UI          | React 19, Tailwind CSS, DaisyUI                             |
-| AI          | Vercel AI SDK, Google Gemini (embeddings), OpenRouter (LLM) |
-| Gateway     | Cloudflare AI Gateway (Google provider path only)           |
-| Database    | Supabase (Postgres + pgvector)                              |
-| Edge worker | Cloudflare Workers                                          |
-| Testing     | Jest 29, React Testing Library                              |
-| Tooling     | TypeScript (strict), ESLint, Prettier, Husky, lint-staged   |
+| Layer       | Technology                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------ |
+| Framework   | Next.js 16 (App Router, Turbopack)                                                         |
+| UI          | React 19, Tailwind CSS, DaisyUI                                                            |
+| AI          | Vercel AI SDK, Google Gemini (primary LLM + embeddings), OpenRouter MiniMax (fallback LLM) |
+| Gateway     | Cloudflare AI Gateway (Google language model path)                                         |
+| Database    | Supabase (Postgres + pgvector)                                                             |
+| Edge worker | Cloudflare Workers                                                                         |
+| Testing     | Jest 29, React Testing Library                                                             |
+| Tooling     | TypeScript (strict), ESLint, Prettier, Husky, lint-staged                                  |
 
 ## Getting Started
 
@@ -74,8 +74,8 @@ If the LLM response cannot be parsed as valid JSON, a **heuristic fallback** (`l
 - Node.js v22.13.1 or higher
 - pnpm
 - A Supabase project with the pgvector extension enabled
-- API keys for your chosen AI provider (Google or OpenRouter) and TMDB
-- (Optional) A Cloudflare account for the AI Gateway
+- API keys for Google Gemini and OpenRouter, plus TMDB
+- A Cloudflare account for the AI Gateway
 
 ### Install
 
@@ -90,19 +90,14 @@ pnpm install
 Create **`.env.local`** for the Next.js app:
 
 ```env
-# AI text provider: "openrouter" (default) or "google"
-AI_TEXT_PROVIDER=openrouter
-# AI embedding provider: always "google"
-AI_EMBEDDING_PROVIDER=google
-
-# Google Gemini (required for embeddings; also for text when AI_TEXT_PROVIDER=google)
+# Google Gemini -- primary language model + embeddings
 GOOGLE_GENERATIVE_AI_API_KEY=
 
-# OpenRouter (required when AI_TEXT_PROVIDER=openrouter)
+# OpenRouter -- fallback language model (used when Google is unavailable or quota-limited)
 OPENROUTER_API_KEY=
 OPENROUTER_LANGUAGE_MODEL=             # optional, defaults to minimax/minimax-m2.5:free
 
-# Cloudflare AI Gateway (required only when AI_TEXT_PROVIDER=google)
+# Cloudflare AI Gateway (required for the primary Google language model)
 CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_GATEWAY_NAME=
 CLOUDFLARE_API_KEY=                    # optional
@@ -261,7 +256,7 @@ The Supabase worker (`workers/supabase-worker.ts`, port 7878) proxies database o
 
 ### AI Gateway
 
-When `AI_TEXT_PROVIDER=google`, text generation calls are routed through the **Cloudflare AI Gateway** for logging, caching, and rate limiting. The gateway is configured in `lib/config/ai.ts` using the `ai-gateway-provider` package. It is not used when `AI_TEXT_PROVIDER=openrouter`.
+Text generation calls to Google Gemini are routed through the **Cloudflare AI Gateway** for logging, caching, and rate limiting. The gateway is configured in `lib/config/ai.ts` using the `ai-gateway-provider` package. The OpenRouter fallback path does not use the gateway.
 
 ## AI Limitations
 
