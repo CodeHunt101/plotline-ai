@@ -39,7 +39,7 @@ describe("recommendations page metadata", () => {
 
 describe("Recommendations Component", () => {
   const mockPush = jest.fn();
-  const mockSetGroupTimeAvailable = jest.fn();
+  const mockResetMovieSession = jest.fn();
 
   const mockRecommendations = {
     match: [],
@@ -64,7 +64,7 @@ describe("Recommendations Component", () => {
     (useRouter as jest.Mock).mockReturnValue({ push: mockPush });
     (useMovieContext as jest.Mock).mockReturnValue({
       recommendations: mockRecommendations,
-      setGroupTimeAvailable: mockSetGroupTimeAvailable,
+      resetMovieSession: mockResetMovieSession,
     });
     (searchMoviePoster as jest.Mock).mockResolvedValue("http://example.com/poster.jpg");
   });
@@ -72,7 +72,7 @@ describe("Recommendations Component", () => {
   it("redirects to home if no recommendations", () => {
     (useMovieContext as jest.Mock).mockReturnValue({
       recommendations: null,
-      setGroupTimeAvailable: mockSetGroupTimeAvailable,
+      resetMovieSession: mockResetMovieSession,
     });
 
     render(<Recommendations />);
@@ -146,7 +146,7 @@ describe("Recommendations Component", () => {
     fireEvent.click(startOverButton);
 
     waitFor(() => {
-      expect(mockSetGroupTimeAvailable).toHaveBeenCalledWith("");
+      expect(mockResetMovieSession).toHaveBeenCalledTimes(1);
       expect(mockPush).toHaveBeenCalledWith("/");
     });
   });
@@ -159,7 +159,7 @@ describe("Recommendations Component", () => {
           recommendedMovies: [],
         },
       },
-      setGroupTimeAvailable: mockSetGroupTimeAvailable,
+      resetMovieSession: mockResetMovieSession,
     });
 
     render(<Recommendations />);

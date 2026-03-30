@@ -101,4 +101,16 @@ describe("matchMoviesByEmbedding", () => {
 
     await expect(matchMoviesByEmbedding(mockEmbedding)).rejects.toThrow("Invalid JSON");
   });
+
+  it("should throw a generic worker status error when the response is not ok", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      json: () => Promise.resolve({}),
+    });
+
+    await expect(matchMoviesByEmbedding(mockEmbedding)).rejects.toThrow(
+      "Worker request failed with status 503"
+    );
+  });
 });

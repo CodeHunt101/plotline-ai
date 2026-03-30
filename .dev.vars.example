@@ -9,3 +9,6 @@ SUPABASE_URL=
 # Supabase anon/service key
 # Found in your Supabase dashboard under Project Settings > Data API
 SUPABASE_API_KEY=
+
+# Shared secret expected from the Next.js app when calling the worker
+WORKER_SHARED_SECRET=

@@ -8,12 +8,13 @@ import { createClient } from "@supabase/supabase-js";
 interface Env {
   SUPABASE_URL: string;
   SUPABASE_API_KEY: string;
+  WORKER_SHARED_SECRET: string;
 }
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, x-worker-secret",
 } as const;
 
 const MATCH_THRESHOLD = 0.25;
@@ -85,6 +86,14 @@ async function handleMatchMovies(request: Request, supabase: any): Promise<Respo
   });
 }
 
+function isAuthorisedRequest(request: Request, env: Env): boolean {
+  if (!env.WORKER_SHARED_SECRET) {
+    throw new Error("WORKER_SHARED_SECRET is not configured");
+  }
+
+  return request.headers.get("x-worker-secret") === env.WORKER_SHARED_SECRET;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     // Handle CORS preflight requests
@@ -99,6 +108,13 @@ export default {
     const pathname = url.pathname;
 
     try {
+      if (!isAuthorisedRequest(request, env)) {
+        return new Response(JSON.stringify({ error: "Unauthorised" }), {
+          status: 401,
+          headers: corsHeaders,
+        });
+      }
+
       switch (pathname) {
         case "/api/check-empty":
           return await handleisMovieEmbeddingsTableEmpty(supabase);

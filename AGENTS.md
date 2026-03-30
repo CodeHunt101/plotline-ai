@@ -24,12 +24,12 @@ TypeScript is `strict`, so prefer explicit types for props, service inputs, and 
 
 ## Testing Guidelines
 
-Jest and React Testing Library are the default tools. Keep tests beside the code they cover and name them `Component.test.tsx`, `service.test.ts`, or similar. Mock network calls in service tests and assert rendered behaviour in route and component tests. Coverage is enforced at 95% globally (branches, functions, lines, statements). After implementing a feature or making any code change, run `pnpm test:ci` to verify tests pass and `pnpm test:coverage` to verify coverage thresholds are met. Add or update tests for every bug fix and behaviour change.
+Jest and React Testing Library are the default tools. Keep tests beside the code they cover and name them `Component.test.tsx`, `service.test.ts`, or similar. Mock network calls in service tests and assert rendered behaviour in route and component tests. Coverage is enforced at 95% globally (branches, functions, lines, statements). After implementing a feature or making any code change, run `pnpm test:coverage`. Add or update tests for every bug fix and behaviour change.
 
 ## Commit & Pull Request Guidelines
 
-Recent history favours short, imperative commit subjects such as `improve prompt`, with optional prefixes like `refactor:` for scoped cleanup. Keep each commit focused on one logical change. Pull requests should summarise behaviour changes, note env or worker config updates, link the relevant issue when available, and include screenshots for UI changes. Before opening a PR, run `pnpm lint` and `pnpm test:ci` and mention anything you could not verify.
+Recent history favours short, imperative commit subjects such as `improve prompt`, with optional prefixes like `refactor:` for scoped cleanup. Keep each commit focused on one logical change. Pull requests should summarise behaviour changes, note env or worker config updates, link the relevant issue when available, and include screenshots for UI changes. Before opening a PR, run `pnpm lint` and `pnpm test:coverage` and mention anything you could not verify.
 
 ## Environment & Configuration Tips
 
-Store app variables in `.env.local` and worker secrets in `.dev.vars`; never commit either file. `NEXT_PUBLIC_SUPABASE_WORKER_URL` defaults to `http://localhost:7878`, so keep local Wrangler ports aligned.
+Store app variables in `.env.local` and worker secrets in `.dev.vars`; never commit either file. `SUPABASE_WORKER_URL` defaults to `http://localhost:7878`, so keep local Wrangler ports aligned, and keep `SUPABASE_WORKER_SECRET` in sync with `WORKER_SHARED_SECRET`.

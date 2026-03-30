@@ -1,5 +1,20 @@
 import type { ModelMessage } from "ai";
-import { getChatCompletion, systemMessage } from "./openai";
+
+jest.mock("ai", () => ({
+  generateText: jest.fn(),
+}));
+
+jest.mock("@/config/ai", () => ({
+  getLanguageModel: jest.fn(() => "mock-model"),
+}));
+
+import { generateText } from "ai";
+import {
+  buildRecommendationMessages,
+  generateMovieRecommendationsFromMessages,
+  getChatCompletion,
+  systemMessage,
+} from "./openai";
 
 // Mock the fetch function
 global.fetch = jest.fn();
@@ -121,6 +136,30 @@ describe("OpenAI Service", () => {
       await expect(getChatCompletion(mockText, mockQuery)).rejects.toThrow(
         "Movie recommendations response was empty"
       );
+    });
+  });
+
+  describe("generateMovieRecommendationsFromMessages", () => {
+    it("normalises the model response via the shared parser", async () => {
+      (generateText as jest.Mock).mockResolvedValue({
+        text: '```json\n{"recommendedMovies":[]}\n```',
+      });
+
+      await expect(
+        generateMovieRecommendationsFromMessages([{ role: "user", content: "Suggest a film" }])
+      ).resolves.toBe('{"recommendedMovies":[]}');
+    });
+  });
+
+  describe("buildRecommendationMessages", () => {
+    it("prepends the system prompt and appends the user prompt", () => {
+      expect(buildRecommendationMessages("context", "query")).toEqual([
+        systemMessage,
+        {
+          role: "user",
+          content: "-Movie List Context: context \n-User Preferences: query",
+        },
+      ]);
     });
   });
 });

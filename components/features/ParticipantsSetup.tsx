@@ -8,8 +8,20 @@ const MAX_PARTICIPANTS = 10;
 const ParticipantsSetup = () => {
   const router = useRouter();
 
-  const { timeAvailable, setGroupTimeAvailable, totalParticipants, setTotalParticipants } =
-    useMovieContext();
+  const {
+    timeAvailable,
+    setGroupTimeAvailable,
+    totalParticipants,
+    setTotalParticipants,
+    setParticipantsData,
+    setRecommendations,
+  } = useMovieContext();
+
+  const handleStart = () => {
+    setParticipantsData([]);
+    setRecommendations(null);
+    router.push("/movieForm");
+  };
 
   return (
     <div className="text-center w-full">
@@ -47,10 +59,7 @@ const ParticipantsSetup = () => {
         />
       </div>
 
-      <button
-        onClick={() => router.push("/movieForm")}
-        className="btn btn-primary block mx-auto w-full text-3xl"
-      >
+      <button onClick={handleStart} className="btn btn-primary block mx-auto w-full text-3xl">
         Start
       </button>
     </div>

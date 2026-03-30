@@ -108,6 +108,7 @@ describe("MovieForm", () => {
             setRecommendations: jest.fn(),
             setGroupTimeAvailable: jest.fn(),
             setTotalParticipants: jest.fn(),
+            resetMovieSession: jest.fn(),
           }}
         >
           <MovieForm />
@@ -204,6 +205,7 @@ describe("MovieForm", () => {
             setRecommendations: jest.fn(),
             setGroupTimeAvailable: jest.fn(),
             setTotalParticipants: jest.fn(),
+            resetMovieSession: jest.fn(),
           }}
         >
           <MovieForm />

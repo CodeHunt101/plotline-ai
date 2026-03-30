@@ -93,6 +93,27 @@ describe("MovieContext", () => {
       expect(useMovieContext().totalParticipants).toEqual(newTotalParticipants);
     });
   });
+
+  it("should reset the movie session to its defaults", () => {
+    const { getByText } = render(
+      <MovieProvider>
+        <TestComponent />
+      </MovieProvider>
+    );
+
+    fireEvent.click(getByText("Set Participants Data"));
+    fireEvent.click(getByText("Set Recommendations"));
+    fireEvent.click(getByText("Set Group Time Available"));
+    fireEvent.click(getByText("Set Total Participants"));
+    fireEvent.click(getByText("Reset Movie Session"));
+
+    waitFor(() => {
+      expect(useMovieContext().participantsData).toEqual([]);
+      expect(useMovieContext().recommendations).toBeNull();
+      expect(useMovieContext().timeAvailable).toBe("");
+      expect(useMovieContext().totalParticipants).toBe(1);
+    });
+  });
 });
 
 const TestComponent = () => {
@@ -105,6 +126,7 @@ const TestComponent = () => {
     setRecommendations,
     setGroupTimeAvailable,
     setTotalParticipants,
+    resetMovieSession,
   } = useMovieContext();
 
   return (
@@ -160,6 +182,7 @@ const TestComponent = () => {
         Set Group Time Available
       </button>
       <button onClick={() => setTotalParticipants(5)}>Set Total Participants</button>
+      <button onClick={resetMovieSession}>Reset Movie Session</button>
     </div>
   );
 };

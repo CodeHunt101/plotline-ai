@@ -3,12 +3,14 @@ import path from "path";
 import { embed } from "ai";
 import { normaliseEmbeddingVector } from "@/services/embeddings";
 import { getEmbeddingModel, getEmbeddingProviderOptions } from "@/config/ai";
-import { SUPABASE_WORKER_URL } from "@/config/supabase";
+import { getSupabaseWorkerHeaders, SUPABASE_WORKER_URL } from "@/config/supabase";
 
 const BATCH_SIZE = 10;
 
 async function isMovieEmbeddingsTableEmpty() {
-  const response = await fetch(`${SUPABASE_WORKER_URL}/api/check-empty`);
+  const response = await fetch(`${SUPABASE_WORKER_URL}/api/check-empty`, {
+    headers: getSupabaseWorkerHeaders(),
+  });
   if (!response.ok) {
     throw new Error(`Failed to check if table is empty: ${response.status}`);
   }
@@ -18,6 +20,7 @@ async function isMovieEmbeddingsTableEmpty() {
 async function truncateMovieEmbeddings() {
   const response = await fetch(`${SUPABASE_WORKER_URL}/api/truncate-movies`, {
     method: "DELETE",
+    headers: getSupabaseWorkerHeaders(),
   });
   if (!response.ok) {
     throw new Error(`Failed to truncate table: ${response.status}`);
@@ -47,7 +50,7 @@ async function createChunkEmbedding(chunk: { pageContent: string }, index: numbe
 async function storeMovieEmbeddingsBatch(batch: unknown[]) {
   const response = await fetch(`${SUPABASE_WORKER_URL}/api/insert-movies`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getSupabaseWorkerHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ batch }),
   });
 

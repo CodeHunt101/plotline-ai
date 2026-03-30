@@ -10,6 +10,12 @@ export function MovieProvider({ children }: { children: ReactNode }) {
   const [recommendations, setRecommendations] = useState<MovieRecommendation | null>(null);
   const [timeAvailable, setGroupTimeAvailable] = useState<string>("");
   const [totalParticipants, setTotalParticipants] = useState<number>(1);
+  const resetMovieSession = () => {
+    setParticipantsData([]);
+    setRecommendations(null);
+    setGroupTimeAvailable("");
+    setTotalParticipants(1);
+  };
 
   return (
     <MovieContext.Provider
@@ -22,6 +28,7 @@ export function MovieProvider({ children }: { children: ReactNode }) {
         setRecommendations,
         setGroupTimeAvailable,
         setTotalParticipants,
+        resetMovieSession,
       }}
     >
       {children}
