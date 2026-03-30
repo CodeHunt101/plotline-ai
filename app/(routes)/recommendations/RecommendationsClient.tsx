@@ -1,7 +1,7 @@
 "use client";
 
 import { useMovieContext } from "@/contexts/MovieContext";
-import { useRouter, redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useReducer } from "react";
 import Image from "next/image";
 import { searchMoviePoster } from "@/lib/services/tmdb";
@@ -61,6 +61,12 @@ export default function RecommendationsClient() {
   const { currentIndex, posterUrls, isLoadingPoster } = state;
 
   useEffect(() => {
+    if (recommendations) return;
+
+    router.replace("/");
+  }, [recommendations, router]);
+
+  useEffect(() => {
     if (!recommendations) return;
 
     const movies = recommendations.result.recommendedMovies;
@@ -101,7 +107,6 @@ export default function RecommendationsClient() {
   }, [recommendations, currentIndex, posterUrls]);
 
   if (!recommendations) {
-    redirect("/");
     return null;
   }
 
@@ -160,7 +165,6 @@ export default function RecommendationsClient() {
       <button
         onClick={() => {
           resetMovieSession();
-          router.push("/");
         }}
         className="btn btn-secondary block my-3 mx-auto text-xl w-full"
       >

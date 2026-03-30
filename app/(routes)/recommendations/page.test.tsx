@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import { useRouter, redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useMovieContext } from "@/contexts/MovieContext";
 import { searchMoviePoster } from "@/lib/services/tmdb";
 import Recommendations from "./RecommendationsClient";
@@ -7,7 +7,6 @@ import { metadata } from "./page";
 
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
-  redirect: jest.fn(),
 }));
 
 jest.mock("next/image", () => ({
@@ -39,6 +38,7 @@ describe("recommendations page metadata", () => {
 
 describe("Recommendations Component", () => {
   const mockPush = jest.fn();
+  const mockReplace = jest.fn();
   const mockResetMovieSession = jest.fn();
 
   const mockRecommendations = {
@@ -61,7 +61,7 @@ describe("Recommendations Component", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (useRouter as jest.Mock).mockReturnValue({ push: mockPush });
+    (useRouter as jest.Mock).mockReturnValue({ push: mockPush, replace: mockReplace });
     (useMovieContext as jest.Mock).mockReturnValue({
       recommendations: mockRecommendations,
       resetMovieSession: mockResetMovieSession,
@@ -69,14 +69,17 @@ describe("Recommendations Component", () => {
     (searchMoviePoster as jest.Mock).mockResolvedValue("http://example.com/poster.jpg");
   });
 
-  it("redirects to home if no recommendations", () => {
+  it("navigates home if no recommendations", async () => {
     (useMovieContext as jest.Mock).mockReturnValue({
       recommendations: null,
       resetMovieSession: mockResetMovieSession,
     });
 
     render(<Recommendations />);
-    expect(redirect).toHaveBeenCalledWith("/");
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith("/");
+    });
   });
 
   it("displays movie information correctly", async () => {
@@ -139,15 +142,28 @@ describe("Recommendations Component", () => {
     expect(screen.getByText("Test Movie 1 (2023)")).toBeInTheDocument();
   });
 
-  it("handles start over button click", () => {
-    render(<Recommendations />);
+  it("clears the session and navigates home after recommendations are reset", async () => {
+    let currentRecommendations: typeof mockRecommendations | null = mockRecommendations;
+    mockResetMovieSession.mockImplementation(() => {
+      currentRecommendations = null;
+    });
+    (useMovieContext as jest.Mock).mockImplementation(() => ({
+      recommendations: currentRecommendations,
+      resetMovieSession: mockResetMovieSession,
+    }));
+
+    const { rerender } = render(<Recommendations />);
 
     const startOverButton = screen.getByText("Start Over");
     fireEvent.click(startOverButton);
 
-    waitFor(() => {
+    expect(mockResetMovieSession).toHaveBeenCalledTimes(1);
+
+    rerender(<Recommendations />);
+
+    await waitFor(() => {
       expect(mockResetMovieSession).toHaveBeenCalledTimes(1);
-      expect(mockPush).toHaveBeenCalledWith("/");
+      expect(mockReplace).toHaveBeenCalledWith("/");
     });
   });
 
