@@ -8,7 +8,18 @@ export async function createEmbedding(input: string) {
     body: JSON.stringify({ input }),
   });
 
-  const data = await response.json();
+  const data = (await response.json()) as { embedding?: unknown; error?: unknown };
+
+  if (!response.ok) {
+    throw new Error(typeof data.error === "string" ? data.error : "Failed to create embedding");
+  }
+
+  if (
+    !Array.isArray(data.embedding) ||
+    !data.embedding.every((value) => typeof value === "number")
+  ) {
+    throw new Error("Embedding response was invalid");
+  }
 
   return normaliseEmbeddingVector(data.embedding);
 }

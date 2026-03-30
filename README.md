@@ -40,7 +40,7 @@ All preferences are concatenated into a single text blob and sent to `POST /api/
 
 ### 3. Retrieve -- vector similarity search
 
-The normalised vector is forwarded to the **Supabase Cloudflare Worker** (`POST /api/match-movies`), which runs the Postgres RPC `match_movies_4`. This function uses the pgvector `<=>` (cosine distance) operator against a pre-seeded corpus of movie embeddings and returns the **top 10 matches** above a 0.25 similarity threshold.
+The browser sends participant answers to `POST /api/recommendations`, and the server forwards the normalised vector to the **Supabase Cloudflare Worker** (`POST /api/match-movies`). That worker runs the Postgres RPC `match_movies_4`, using the pgvector `<=>` (cosine distance) operator against a pre-seeded corpus of movie embeddings and returning the **top 10 matches** above a 0.25 similarity threshold.
 
 The movie corpus lives in `public/constants/movies.txt` and is chunked and embedded via the `/api/embeddings-seed` endpoint on first run.
 
@@ -102,8 +102,9 @@ CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_GATEWAY_NAME=
 CLOUDFLARE_API_KEY=                    # optional
 
-# Supabase worker URL (defaults to http://localhost:7878)
-NEXT_PUBLIC_SUPABASE_WORKER_URL=
+# Supabase worker URL + shared secret used by server-side worker calls
+SUPABASE_WORKER_URL=
+SUPABASE_WORKER_SECRET=
 
 # TMDB poster lookup
 NEXT_PUBLIC_TMBD_ACCESS_TOKEN=
@@ -114,6 +115,7 @@ Create **`.dev.vars`** for the Cloudflare Supabase worker (see `.dev.vars.exampl
 ```env
 SUPABASE_URL=
 SUPABASE_API_KEY=
+WORKER_SHARED_SECRET=              # must match SUPABASE_WORKER_SECRET
 ```
 
 ### Database setup
@@ -170,9 +172,9 @@ npx wrangler dev --config wrangler.supabase.toml
 
 Then open [http://localhost:3000](http://localhost:3000).
 
-To seed the movie corpus into Supabase on first run, call `GET /api/embeddings-seed`. This splits `public/constants/movies.txt` on movie boundaries (one entry per embedding), embeds each entry, and inserts them into the `movies_4` table if it is empty.
+To seed the movie corpus into Supabase on first run, call `GET /api/embeddings-seed` with the `x-worker-secret` header set to `SUPABASE_WORKER_SECRET`. This splits `public/constants/movies.txt` on movie boundaries (one entry per embedding), embeds each entry, and inserts them into the `movies_4` table if it is empty.
 
-To force a full reseed (truncates existing data first), call `GET /api/embeddings-seed?force=true`.
+To force a full reseed (truncates existing data first), call `GET /api/embeddings-seed?force=true` with the same `x-worker-secret` header.
 
 ### Testing
 
@@ -219,6 +221,7 @@ plotline-ai/
 │   │   └── recommendations/page.tsx# Results carousel
 │   ├── api/
 │   │   ├── movies/route.ts         # LLM chat completion
+│   │   ├── recommendations/route.ts# Server-side recommendation pipeline
 │   │   ├── embeddings/route.ts     # Embedding generation
 │   │   └── embeddings-seed/route.ts# Corpus seeding
 │   ├── layout.tsx
@@ -249,10 +252,10 @@ plotline-ai/
 
 The Supabase worker (`workers/supabase-worker.ts`, port 7878) proxies database operations so that Supabase credentials stay server-side:
 
-- `POST /api/insert-movies` -- batch-insert chunked movie data during seeding.
-- `GET /api/check-empty` -- check whether the movies table needs seeding.
-- `POST /api/match-movies` -- run the pgvector similarity RPC and return the top matches.
-- `DELETE /api/truncate-movies` -- delete all rows from the movies table (used by force-reseed).
+- `POST /api/insert-movies` -- batch-insert chunked movie data during seeding. Requires `x-worker-secret`.
+- `GET /api/check-empty` -- check whether the movies table needs seeding. Requires `x-worker-secret`.
+- `POST /api/match-movies` -- run the pgvector similarity RPC and return the top matches. Requires `x-worker-secret`.
+- `DELETE /api/truncate-movies` -- delete all rows from the movies table (used by force-reseed). Requires `x-worker-secret`.
 
 ### AI Gateway
 

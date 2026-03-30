@@ -1,15 +1,13 @@
+import { buildMovieRecommendations } from "@/lib/services/movie-recommendations";
 import { NextResponse } from "next/server";
-import { generateMovieRecommendationsFromMessages } from "@/lib/services/openai";
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
-    const { messages } = await request.json();
-
-    return NextResponse.json({
-      content: await generateMovieRecommendationsFromMessages(messages),
-    });
+    const movieData = await request.json();
+    const recommendations = await buildMovieRecommendations(movieData);
+    return NextResponse.json(recommendations);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error occurred";
     return NextResponse.json({ error: message }, { status: 500 });

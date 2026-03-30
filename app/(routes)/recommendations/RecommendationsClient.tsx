@@ -55,7 +55,7 @@ function recommendationsViewReducer(
 }
 
 export default function RecommendationsClient() {
-  const { recommendations, setGroupTimeAvailable } = useMovieContext();
+  const { recommendations, resetMovieSession } = useMovieContext();
   const router = useRouter();
   const [state, dispatch] = useReducer(recommendationsViewReducer, initialRecommendationsState);
   const { currentIndex, posterUrls, isLoadingPoster } = state;
@@ -159,7 +159,7 @@ export default function RecommendationsClient() {
       )}
       <button
         onClick={() => {
-          setGroupTimeAvailable("");
+          resetMovieSession();
           router.push("/");
         }}
         className="btn btn-secondary block my-3 mx-auto text-xl w-full"

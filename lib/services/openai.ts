@@ -1,4 +1,6 @@
-import type { ModelMessage } from "ai";
+import { generateText, type ModelMessage } from "ai";
+import { getLanguageModel } from "@/config/ai";
+import { stringifyMovieRecommendationsResponse } from "@/lib/utils/recommendations";
 
 /** Instructions and JSON schema constraints for the recommendation model. */
 export const systemMessage: ModelMessage = {
@@ -39,6 +41,37 @@ If no matches: { "recommendedMovies": [] }
 `,
 };
 
+/** Builds the chat payload used by the recommendation model. */
+export function buildRecommendationMessages(
+  text: string,
+  query: string,
+  previousMessages: ModelMessage[] = []
+) {
+  return [
+    systemMessage,
+    ...previousMessages,
+    {
+      role: "user" as const,
+      content: `-Movie List Context: ${text} 
+-User Preferences: ${query}`,
+    },
+  ];
+}
+
+/** Runs the recommendation model and normalises the JSON response. */
+export async function generateMovieRecommendationsFromMessages(
+  messages: ModelMessage[]
+): Promise<string> {
+  const model = getLanguageModel();
+  const { text } = await generateText({
+    model,
+    messages,
+    temperature: 0.65,
+  });
+
+  return stringifyMovieRecommendationsResponse(text);
+}
+
 /**
  * Requests structured movie recommendations from `POST /api/movies`.
  * `text` is the movie-list context; `query` is the user-preferences string echoed into the user message.
@@ -54,22 +87,14 @@ export async function getChatCompletion(
     return;
   }
 
-  const messages: ModelMessage[] = [
-    systemMessage,
-    ...previousMessages,
-    {
-      role: "user",
-      content: `-Movie List Context: ${text} 
--User Preferences: ${query}`,
-    },
-  ];
-
   const response = await fetch("/api/movies", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({
+      messages: buildRecommendationMessages(text, query, previousMessages),
+    }),
   });
 
   const data = (await response.json()) as { content?: unknown; error?: unknown };

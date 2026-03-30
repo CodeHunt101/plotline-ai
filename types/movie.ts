@@ -14,9 +14,10 @@ export type MovieContextType = {
   timeAvailable: string;
   totalParticipants: number;
   setParticipantsData: (data: ParticipantData[]) => void;
-  setRecommendations: (data: MovieRecommendation) => void;
+  setRecommendations: (data: MovieRecommendation | null) => void;
   setGroupTimeAvailable: (time: string) => void;
   setTotalParticipants: (total: number) => void;
+  resetMovieSession: () => void;
 };
 
 export type MovieType = (typeof MOVIE_TYPES)[number];

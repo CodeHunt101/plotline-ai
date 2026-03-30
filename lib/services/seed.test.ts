@@ -163,6 +163,7 @@ describe("seedMovieEmbeddings", () => {
     });
 
     expect(fetch).toHaveBeenCalledWith(`${SUPABASE_WORKER_URL}/api/truncate-movies`, {
+      headers: {},
       method: "DELETE",
     });
   });

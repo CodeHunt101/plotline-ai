@@ -1,19 +1,7 @@
-import { matchMoviesByEmbedding } from "@/services/supabase";
-import { getChatCompletion } from "@/services/openai";
-import { ParticipantsMovieData, MovieRecord } from "@/types/api";
+import { ParticipantsMovieData } from "@/types/api";
 import { getMovieRecommendations } from "./movies";
-import { createEmbedding } from "@/services/embeddings";
 
-// Mock all dependencies
-jest.mock("@/services/embeddings", () => ({
-  createEmbedding: jest.fn(),
-}));
-jest.mock("@/services/openai", () => ({
-  getChatCompletion: jest.fn(),
-}));
-jest.mock("@/services/supabase", () => ({
-  matchMoviesByEmbedding: jest.fn(),
-}));
+global.fetch = jest.fn();
 
 describe("getMovieRecommendations", () => {
   const mockMovieData: ParticipantsMovieData = {
@@ -24,201 +12,71 @@ describe("getMovieRecommendations", () => {
         moodType: "inspiring",
         favouriteFilmPerson: "Christopher Nolan",
       },
-      {
-        favouriteMovie: "The Lion King",
-        movieType: "classic",
-        moodType: "fun",
-        favouriteFilmPerson: "Morgan Freeman",
-      },
     ],
     timeAvailable: "3 hours",
-  };
-
-  const mockEmbedding = [0.1, 0.2, 0.3];
-  const mockMatches: MovieRecord[] = [
-    {
-      id: 1,
-      content: "Movie 1: Inception (2010) - A mind-bending thriller. IMDB: 8.8",
-      similarity: 0.9,
-    },
-    {
-      id: 2,
-      content: "Movie 2: The Dark Knight (2008) - A superhero epic. IMDB: 9.0",
-      similarity: 0.8,
-    },
-  ];
-
-  const mockRecommendation = {
-    recommendedMovies: [
-      {
-        name: "Inception",
-        releaseYear: "2010",
-        synopsis: "A mind-bending thriller. IMDB: 8.8",
-      },
-    ],
-  };
-
-  const fallbackRecommendation = {
-    recommendedMovies: [
-      {
-        name: "Inception",
-        releaseYear: "2010",
-        synopsis: "A mind-bending thriller. IMDB: 8.8",
-      },
-      {
-        name: "The Dark Knight",
-        releaseYear: "2008",
-        synopsis: "A superhero epic. IMDB: 9.0",
-      },
-    ],
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("should successfully process movie recommendations", async () => {
-    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
-    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
-    (getChatCompletion as jest.Mock).mockResolvedValue(JSON.stringify(mockRecommendation));
+  it("posts movie data to the server recommendation route", async () => {
+    const mockRecommendation = {
+      match: [{ id: 1, content: "Movie 1", similarity: 0.9 }],
+      result: {
+        recommendedMovies: [
+          {
+            name: "Inception",
+            releaseYear: "2010",
+            synopsis: "A mind-bending thriller.",
+          },
+        ],
+      },
+    };
 
-    const result = await getMovieRecommendations(mockMovieData);
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve(mockRecommendation),
+    });
 
-    const expectedEmbeddingInput =
-      "Participant 1:\n" +
-      "Favourite movie: Inception\n" +
-      "I want to see: new movies\n" +
-      "Mood for: inspiring movies\n" +
-      "Favourite film person to be stranded on an island with: Christopher Nolan\n" +
-      "\n" +
-      "Participant 2:\n" +
-      "Favourite movie: The Lion King\n" +
-      "I want to see: classic movies\n" +
-      "Mood for: fun movies\n" +
-      "Favourite film person to be stranded on an island with: Morgan Freeman\n" +
-      "\n" +
-      "Time available for all participants: 3 hours";
-
-    // normalise both strings to handle hidden spaces or line ending inconsistencies
-    const normaliseString = (str: string) => str.replace(/\s+/g, " ").trim();
-
-    expect(normaliseString((createEmbedding as jest.Mock).mock.calls[0][0])).toBe(
-      normaliseString(expectedEmbeddingInput)
-    );
-    expect(matchMoviesByEmbedding).toHaveBeenCalledWith(mockEmbedding);
-    expect(result).toEqual({
-      match: mockMatches,
-      result: mockRecommendation,
+    await expect(getMovieRecommendations(mockMovieData)).resolves.toEqual(mockRecommendation);
+    expect(global.fetch).toHaveBeenCalledWith("/api/recommendations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(mockMovieData),
     });
   });
 
-  it("should parse fenced JSON recommendations", async () => {
-    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
-    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
-    (getChatCompletion as jest.Mock).mockResolvedValue(
-      `\`\`\`json\n${JSON.stringify(mockRecommendation, null, 2)}\n\`\`\``
-    );
-
-    const result = await getMovieRecommendations(mockMovieData);
-
-    expect(result).toEqual({
-      match: mockMatches,
-      result: mockRecommendation,
+  it("throws the route error message when the request fails", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      json: () => Promise.resolve({ error: "Chat completion failed" }),
     });
-  });
-
-  it("should return empty arrays when no matches are found", async () => {
-    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
-    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue([]);
-
-    const result = await getMovieRecommendations(mockMovieData);
-
-    expect(result).toEqual({
-      match: [],
-      result: { recommendedMovies: [] },
-    });
-    expect(getChatCompletion).not.toHaveBeenCalled();
-  });
-
-  it("should handle error from createEmbedding", async () => {
-    const error = new Error("Embedding creation failed");
-    (createEmbedding as jest.Mock).mockRejectedValue(error);
-
-    await expect(getMovieRecommendations(mockMovieData)).rejects.toThrow(
-      "Embedding creation failed"
-    );
-  });
-
-  it("should handle error from matchMoviesByEmbedding", async () => {
-    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
-    (matchMoviesByEmbedding as jest.Mock).mockRejectedValue(new Error("Database search failed"));
-
-    await expect(getMovieRecommendations(mockMovieData)).rejects.toThrow("Database search failed");
-  });
-
-  it("should handle error from getChatCompletion", async () => {
-    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
-    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
-    (getChatCompletion as jest.Mock).mockRejectedValue(new Error("Chat completion failed"));
 
     await expect(getMovieRecommendations(mockMovieData)).rejects.toThrow("Chat completion failed");
   });
 
-  it("should use the fallback string when getChatCompletion returns null", async () => {
-    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
-    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
-    (getChatCompletion as jest.Mock).mockResolvedValue(null);
-
-    await expect(getMovieRecommendations(mockMovieData)).resolves.toEqual({
-      match: mockMatches,
-      result: fallbackRecommendation,
+  it("throws a generic message when the route fails without a string error", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      json: () => Promise.resolve({ error: { code: "upstream" } }),
     });
-  });
-
-  it("should fall back to retrieval matches when the model returns an empty list", async () => {
-    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
-    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
-    (getChatCompletion as jest.Mock).mockResolvedValue('{"recommendedMovies":[]}');
-
-    await expect(getMovieRecommendations(mockMovieData)).resolves.toEqual({
-      match: mockMatches,
-      result: fallbackRecommendation,
-    });
-  });
-
-  it("should fall back to retrieval matches for invalid recommendation JSON", async () => {
-    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
-    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
-    (getChatCompletion as jest.Mock).mockResolvedValue("not valid json");
-
-    await expect(getMovieRecommendations(mockMovieData)).resolves.toEqual({
-      match: mockMatches,
-      result: fallbackRecommendation,
-    });
-  });
-
-  it("should re-throw invalid recommendation JSON when fallback matches are unusable", async () => {
-    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
-    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue([
-      {
-        id: 1,
-        content: "   ",
-        similarity: 0.9,
-      },
-    ]);
-    (getChatCompletion as jest.Mock).mockResolvedValue("not valid json");
 
     await expect(getMovieRecommendations(mockMovieData)).rejects.toThrow(
-      "Movie recommendations response was not valid JSON"
+      "Failed to get movie recommendations"
     );
   });
 
-  it("should re-throw unknown errors as a generic Error", async () => {
-    (createEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
-    (matchMoviesByEmbedding as jest.Mock).mockRejectedValue("non-Error value");
+  it("rejects invalid successful responses", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ match: "bad-data", result: null }),
+    });
 
     await expect(getMovieRecommendations(mockMovieData)).rejects.toThrow(
-      "An unknown error occurred"
+      "Movie recommendations response was invalid"
     );
   });
 });

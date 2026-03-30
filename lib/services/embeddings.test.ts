@@ -19,6 +19,7 @@ describe("createEmbedding", () => {
 
     // Mock the fetch response
     (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
       json: () => Promise.resolve(mockResponse),
     });
 
@@ -43,6 +44,24 @@ describe("createEmbedding", () => {
     (global.fetch as jest.Mock).mockRejectedValueOnce(new Error("Network error"));
 
     await expect(createEmbedding("test input")).rejects.toThrow("Network error");
+  });
+
+  it("should surface route errors", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      json: () => Promise.resolve({ error: "Embedding API failure" }),
+    });
+
+    await expect(createEmbedding("test input")).rejects.toThrow("Embedding API failure");
+  });
+
+  it("should reject invalid embedding payloads", async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ embedding: "bad-data" }),
+    });
+
+    await expect(createEmbedding("test input")).rejects.toThrow("Embedding response was invalid");
   });
 });
 
