@@ -180,31 +180,25 @@ Circuit breaker that switches from Google Gemini to OpenRouter on quota errors.
 
 ```mermaid
 flowchart TD
-    A([Start: generate recommendations]) --> B{quotaExhausted\nflag set?}
+    A([Start: get recommendations]) --> B{quotaExhausted?}
 
-    B -- Yes --> C[Use OpenRouter\nminimax-m2.5]
-    B -- No --> D[Use Google Gemini\nvia CF AI Gateway]
+    B -- No --> D["Use Google Gemini<br/>via CF AI Gateway"]
+    B -- "Yes, check timer" --> L{"Time since<br/>exhaustedAt > 24h?"}
+
+    L -- Yes --> M[Reset quotaExhausted flag]
+    M --> D
+    L -- No --> C["Use OpenRouter<br/>minimax-m2.5"]
 
     D --> E{Response OK?}
     E -- Yes --> F[Parse JSON response]
     C --> F
 
-    E -- "Error 429 / 403" --> G[Set quotaExhausted = true\nRecord exhaustedAt timestamp]
-    G --> H[Use OpenRouter\nminimax-m2.5 (fallback)]
+    E -- "Error 429 or 403" --> G["Set quotaExhausted = true<br/>Record exhaustedAt timestamp"]
+    G --> H["Use OpenRouter<br/>minimax-m2.5 as fallback"]
     H --> F
 
     F --> I{Valid JSON?}
     I -- Yes --> J([Return MovieRecommendation])
-
-    I -- No --> K[fallbackMovieRecommendations()\nExtract titles from\nvector search results]
+    I -- No --> K["fallbackMovieRecommendations<br/>Extract titles from<br/>vector search results"]
     K --> J
-
-    subgraph CircuitBreaker["Circuit Breaker (lib/config/ai.ts)"]
-        L{Time since\nexhaustedAt > 24h?}
-    end
-
-    B -- "Yes → check timer" --> L
-    L -- Yes --> M[Reset quotaExhausted flag]
-    M --> D
-    L -- No --> C
 ```
