@@ -1,5 +1,4 @@
 export const SUPABASE_WORKER_URL =
   process.env.NEXT_PUBLIC_SUPABASE_WORKER_URL || "http://localhost:7878";
 
-/** Wrangler entry is `workers/supabase-worker.ts` (see `wrangler.supabase.toml`). */
-export type { default as SupabaseWorkerEntry } from "@/workers/supabase-worker";
+/** Wrangler entry: `workers/supabase-worker.ts` (see `wrangler.supabase.toml`). */

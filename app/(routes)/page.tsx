@@ -53,6 +53,7 @@ export default async function MovieNightForm() {
       <>
         <script
           type="application/ld+json"
+          // react-doctor-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
           }}
