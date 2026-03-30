@@ -40,6 +40,7 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "babel-plugin-react-compiler": "^1.0.0",
     "daisyui": "^4.12.22",
     "eslint": "^9",
     "eslint-config-next": "15.1.2",

@@ -1,5 +1,5 @@
 import { MovieFormData } from "@/types/movie";
-import { ChangeEvent, useCallback, useState } from "react";
+import { ChangeEvent, useState } from "react";
 
 const useMovieForm = (initialState: MovieFormData) => {
   const [formData, setFormData] = useState<MovieFormData>(initialState);
@@ -18,7 +18,7 @@ const useMovieForm = (initialState: MovieFormData) => {
     }));
   };
 
-  const handleTextChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
+  const handleTextChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
 
@@ -26,20 +26,20 @@ const useMovieForm = (initialState: MovieFormData) => {
       ...prev,
       [name]: false,
     }));
-  }, []);
+  };
 
-  const validateForm = useCallback((data: Partial<MovieFormData>) => {
+  const validateForm = (data: Partial<MovieFormData>) => {
     const errors = {
       favouriteMovie: !data.favouriteMovie,
       favouriteFilmPerson: !data.favouriteFilmPerson,
     };
     setValidationErrors(errors);
     return Object.values(errors).every((error) => !error);
-  }, []);
+  };
 
-  const resetForm = useCallback(() => {
+  const resetForm = () => {
     setFormData(initialState);
-  }, [initialState]);
+  };
 
   return {
     formData,
