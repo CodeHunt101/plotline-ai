@@ -11,7 +11,6 @@ graph TD
     subgraph NextJS["Next.js App"]
         Pages["Pages\n/  /movieForm  /recommendations"]
         API_Rec["POST /api/recommendations"]
-        API_Mov["POST /api/movies"]
         API_Seed["GET /api/embeddings-seed"]
 
         subgraph Services["lib/services/"]
@@ -33,7 +32,7 @@ graph TD
         Gemini["Google Gemini\ngemini-embedding-001\ngemini-2.5-flash"]
         OpenRouter["OpenRouter\nminimax-m2.5\nllama-3.3-70b\nopenrouter/free"]
         SupabaseDB["Supabase Postgres\nmovies_4 + pgvector\nmatch_movies_4 RPC"]
-        TMDB["TMDB API\nmovie posters"]
+        TMDB["TMDB API\ movie posters"]
     end
 
     Browser -->|"form submit / navigate"| Pages
@@ -42,7 +41,6 @@ graph TD
     SvcRec --> SvcEmb
     SvcRec --> SvcSup
     SvcRec --> SvcOAI
-    API_Mov --> SvcOAI
     API_Seed --> SvcSeed
     SvcSeed --> SvcEmb
 
