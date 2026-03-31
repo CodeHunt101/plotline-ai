@@ -4,24 +4,150 @@ PlotlineAI is a group movie recommendation app. Each participant shares their ta
 
 [![Live Demo](https://img.shields.io/badge/demo-plotline--ai-blue)](https://plotline-ai.vercel.app/)
 
+## Table of Contents
+
+- [Architecture](#architecture)
+- [How It Works](#how-it-works)
+- [Tech Stack](#tech-stack)
+- [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
+- [Cloudflare Workers](#cloudflare-workers)
+- [AI Limitations](#ai-limitations)
+
+---
+
+## Architecture
+
+```mermaid
+graph TD
+    Browser["Browser\n(React + MovieContext)"]
+
+    subgraph NextJS["Next.js App"]
+        Pages["Pages\n/  /movieForm  /recommendations"]
+        API_Rec["POST /api/recommendations"]
+        API_Emb["POST /api/embeddings"]
+        API_Mov["POST /api/movies"]
+        API_Seed["GET /api/embeddings-seed"]
+
+        subgraph Services["lib/services/"]
+            SvcRec["movie-recommendations\n(pipeline orchestrator)"]
+            SvcEmb["embeddings-server\n(Google Gemini embed)"]
+            SvcOAI["openai\n(LLM interface)"]
+            SvcSup["supabase\n(worker proxy)"]
+            SvcTMDB["tmdb\n(poster lookup)"]
+            SvcSeed["seed\n(corpus seeding)"]
+        end
+    end
+
+    subgraph CloudflareEdge["Cloudflare Edge"]
+        AIGateway["AI Gateway\n(logging / caching)"]
+        Worker["Supabase CF Worker\n/api/match-movies\n/api/insert-movies\n/api/truncate-movies\n/api/check-empty"]
+    end
+
+    subgraph ExternalAPIs["External APIs"]
+        Gemini["Google Gemini\ngemini-embedding-001\ngemini-2.5-flash"]
+        OpenRouter["OpenRouter\nminimax-m2.5"]
+        SupabaseDB["Supabase Postgres\nmovies_4 + pgvector\nmatch_movies_4 RPC"]
+        TMDB["TMDB API\nmovie posters"]
+    end
+
+    Browser -->|"form submit / navigate"| Pages
+    Pages -->|"fetch"| API_Rec
+    Pages -->|"fetch"| API_Emb
+    API_Rec --> SvcRec
+    SvcRec --> SvcEmb
+    SvcRec --> SvcSup
+    SvcRec --> SvcOAI
+    API_Emb --> SvcEmb
+    API_Mov --> SvcOAI
+    API_Seed --> SvcSeed
+    SvcSeed --> SvcEmb
+
+    SvcEmb -->|"embed request"| AIGateway
+    SvcOAI -->|"LLM request (primary)"| AIGateway
+    AIGateway --> Gemini
+
+    SvcOAI -->|"LLM request (fallback)"| OpenRouter
+
+    SvcSup -->|"POST /api/match-movies\nx-worker-secret"| Worker
+    SvcSeed -->|"POST /api/insert-movies\nDELETE /api/truncate-movies"| Worker
+    Worker -->|"Supabase RPC"| SupabaseDB
+
+    Pages -->|"searchMoviePoster"| SvcTMDB
+    SvcTMDB --> TMDB
+```
+
+> Full diagrams — React component tree and AI fallback circuit breaker → [`docs/diagrams.md`](./docs/diagrams.md)
+
+---
+
 ## How It Works
 
 The recommendation pipeline has three stages: **embed**, **retrieve**, and **rank**.
 
+```mermaid
+flowchart LR
+    A["🎬 Participants'\npreferences"] --> B["1. Embed\nGemini → 768-dim vector"]
+    B --> C["2. Retrieve\npgvector similarity search\ntop-10 matches"]
+    C --> D["3. Rank\nLLM re-ranking\n+ JSON response"]
+    D --> E["🍿 Recommended\nmovies + posters"]
 ```
-Participants' preferences
-        |
-        v
-  +-----------+       +-----------------+       +------------------+
-  |  Embed    | ----> |  Vector Search  | ----> |  LLM Re-ranking  |
-  | (Gemini)  |       | (Supabase +     |       | (Gemini primary, |
-  |           |       |  pgvector)      |       |  MiniMax fallbck) |
-  +-----------+       +-----------------+       +------------------+
-                                                        |
-                                                        v
-                                                 Recommended movies
-                                                 + TMDB posters
+
+<details>
+<summary>Detailed sequence diagram</summary>
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Browser as Browser<br/>(MovieFormClient)
+    participant RecAPI as POST /api/recommendations
+    participant Pipeline as movie-recommendations<br/>(lib/services)
+    participant EmbAPI as POST /api/embeddings
+    participant Gemini as Google Gemini<br/>(via CF AI Gateway)
+    participant CFWorker as Cloudflare Worker
+    participant Supabase as Supabase<br/>(pgvector)
+    participant LLM as LLM<br/>(Gemini / OpenRouter)
+    participant TMDB as TMDB API
+
+    User->>Browser: Submit movie preferences<br/>(last participant)
+    Browser->>RecAPI: POST participantsData + timeAvailable
+    RecAPI->>Pipeline: buildMovieRecommendations()
+
+    Note over Pipeline: 1. Build embedding input<br/>format all preferences into text blob
+
+    Pipeline->>EmbAPI: POST text blob
+    EmbAPI->>Gemini: gemini-embedding-001<br/>768-dim vector
+    Gemini-->>EmbAPI: embedding vector
+    EmbAPI-->>Pipeline: L2-normalised vector
+
+    Note over Pipeline: 2. Vector similarity search
+
+    Pipeline->>CFWorker: POST /api/match-movies<br/>{ embedding, threshold: 0.25, count: 10 }
+    CFWorker->>Supabase: RPC match_movies_4()
+    Supabase-->>CFWorker: top-10 similar MovieRecords
+    CFWorker-->>Pipeline: matched movies (id, content, similarity)
+
+    Note over Pipeline: 3. LLM re-ranking
+
+    Pipeline->>LLM: system prompt + movie list + user prefs<br/>temperature: 0.65
+    LLM-->>Pipeline: JSON { recommendedMovies: [...] }
+
+    Note over Pipeline: 4. Parse & fallback<br/>If JSON invalid → extract from vector results
+
+    Pipeline-->>RecAPI: MovieRecommendation
+    RecAPI-->>Browser: 200 { result, match }
+
+    Browser->>Browser: store in MovieContext<br/>router.replace(/recommendations)
+
+    loop For each recommended movie
+        Browser->>TMDB: searchMoviePoster(title)
+        TMDB-->>Browser: poster URL
+    end
+
+    Browser-->>User: Recommendations carousel<br/>with posters
 ```
+
+</details>
 
 ### 1. Collect preferences
 
