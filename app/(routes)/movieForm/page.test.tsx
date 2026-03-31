@@ -4,26 +4,9 @@ import { MovieContext, MovieProvider } from "@/contexts/MovieContext";
 import MovieForm from "./MovieFormClient";
 import { metadata } from "./page";
 import { ParticipantData } from "@/types/movie";
-import { getMovieRecommendations } from "@/services/movies";
 
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
-}));
-
-jest.mock("@/services/movies", () => ({
-  getMovieRecommendations: jest.fn(),
-}));
-
-// Mock useActionState so the real handleFormSubmission callback is invoked
-const mockSubmitAction = jest.fn();
-
-jest.mock("react", () => ({
-  ...jest.requireActual("react"),
-  useActionState: (fn: (prevState: unknown, formData: FormData) => Promise<unknown>) => {
-    mockSubmitAction.mockImplementation((formData: FormData) => fn(undefined, formData));
-    return [null, mockSubmitAction, false];
-  },
-  useState: jest.requireActual("react").useState,
 }));
 
 describe("movieForm page metadata", () => {
@@ -41,17 +24,9 @@ describe("movieForm page metadata", () => {
 describe("MovieForm", () => {
   const mockRouter = { push: jest.fn() };
 
-  const mockRecommendation = {
-    match: [],
-    result: {
-      recommendedMovies: [{ name: "Test Movie", releaseYear: "2024", synopsis: "A test movie" }],
-    },
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
-    (getMovieRecommendations as jest.Mock).mockResolvedValue(mockRecommendation);
   });
 
   const renderMovieForm = () =>
@@ -70,29 +45,30 @@ describe("MovieForm", () => {
   it("returns a validation error message when required fields are empty", async () => {
     renderMovieForm();
 
-    const formData = new FormData();
-    formData.append("favouriteMovie", "");
-    formData.append("favouriteFilmPerson", "");
+    const submitBtn = screen.getByRole("button", { name: /get movie/i });
+    fireEvent.click(submitBtn);
 
-    const result = await mockSubmitAction(formData);
-
-    expect(result).toBe("Please fill out all required fields");
+    expect(await screen.findByText("Please fill out all required fields")).toBeInTheDocument();
   });
 
-  it("calls getMovieRecommendations and navigates on successful single-participant submission", async () => {
+  it("navigates immediately on successful single-participant submission without calling API directly", async () => {
     renderMovieForm();
 
-    const formData = new FormData();
-    formData.append("favouriteMovie", "The Matrix");
-    formData.append("favouriteFilmPerson", "Keanu Reeves");
+    const movieInput = screen.getByLabelText(/favourite movie/i);
+    const personInput = screen.getByLabelText(/famous film person/i);
 
-    await mockSubmitAction(formData);
+    fireEvent.change(movieInput, { target: { value: "The Matrix" } });
+    fireEvent.change(personInput, { target: { value: "Keanu Reeves" } });
 
-    expect(getMovieRecommendations).toHaveBeenCalled();
-    expect(mockRouter.push).toHaveBeenCalledWith("/recommendations");
+    const submitBtn = screen.getByRole("button", { name: /get movie/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockRouter.push).toHaveBeenCalledWith("/recommendations");
+    });
   });
 
-  it("advances to the next participant without calling getMovieRecommendations", async () => {
+  it("advances to the next participant", async () => {
     const participantsData: ParticipantData[] = [];
     const mockSetParticipantsData = jest.fn();
 
@@ -118,40 +94,18 @@ describe("MovieForm", () => {
 
     expect(screen.getByRole("button", { name: /next/i })).toBeInTheDocument();
 
-    const formData = new FormData();
-    formData.append("favouriteMovie", "Interstellar");
-    formData.append("favouriteFilmPerson", "Matt Damon");
+    const movieInput = screen.getByLabelText(/favourite movie/i);
+    const personInput = screen.getByLabelText(/famous film person/i);
 
-    await mockSubmitAction(formData);
+    fireEvent.change(movieInput, { target: { value: "Interstellar" } });
+    fireEvent.change(personInput, { target: { value: "Matt Damon" } });
 
-    expect(getMovieRecommendations).not.toHaveBeenCalled();
-    expect(mockSetParticipantsData).toHaveBeenCalled();
-  });
+    const submitBtn = screen.getByRole("button", { name: /next/i });
+    fireEvent.click(submitBtn);
 
-  it("returns the API error message when getMovieRecommendations throws an Error", async () => {
-    (getMovieRecommendations as jest.Mock).mockRejectedValue(new Error("API Error"));
-    renderMovieForm();
-
-    const formData = new FormData();
-    formData.append("favouriteMovie", "The Matrix");
-    formData.append("favouriteFilmPerson", "Keanu Reeves");
-
-    const result = await mockSubmitAction(formData);
-
-    expect(result).toBe("API Error");
-  });
-
-  it("returns a generic error message when a non-Error is thrown", async () => {
-    (getMovieRecommendations as jest.Mock).mockRejectedValue("unexpected");
-    renderMovieForm();
-
-    const formData = new FormData();
-    formData.append("favouriteMovie", "The Matrix");
-    formData.append("favouriteFilmPerson", "Keanu Reeves");
-
-    const result = await mockSubmitAction(formData);
-
-    expect(result).toBe("An unexpected error occurred");
+    await waitFor(() => {
+      expect(mockSetParticipantsData).toHaveBeenCalled();
+    });
   });
 
   it("handles movie type and mood type selection", () => {
@@ -165,39 +119,17 @@ describe("MovieForm", () => {
     expect(screen.getByText("Serious")).toBeInTheDocument();
   });
 
-  it("shows the loading state when isPending is true", () => {
-    // Override the mock for this test to set isPending = true
-    jest
-      // eslint-disable-next-line @typescript-eslint/no-require-imports -- need CommonJS `require` so spy targets the same mocked module instance `page.tsx` binds to
-      .spyOn(require("react"), "useActionState")
-      .mockReturnValueOnce([null, mockSubmitAction, true]);
-
-    renderMovieForm();
-
-    expect(screen.getByText("Loading movies...")).toBeInTheDocument();
-    expect(screen.queryByText("Person #1")).not.toBeInTheDocument();
-  });
-
-  it("displays the error returned by the action", () => {
-    // Override the mock for this test to inject an error string
-    jest
-      // eslint-disable-next-line @typescript-eslint/no-require-imports -- need CommonJS `require` so spy targets the same mocked module instance `page.tsx` binds to
-      .spyOn(require("react"), "useActionState")
-      .mockReturnValueOnce(["Please fill out all required fields", mockSubmitAction, false]);
-
-    renderMovieForm();
-
-    expect(screen.getByText("Please fill out all required fields")).toBeInTheDocument();
-  });
-
   it("clears form data after advancing to next participant", async () => {
-    const mockSetParticipantsData = jest.fn();
+    let internalParticipantsData: ParticipantData[] = [];
+    const mockSetParticipantsData = jest.fn((data) => {
+      internalParticipantsData = data;
+    });
 
     render(
       <MovieProvider>
         <MovieContext.Provider
           value={{
-            participantsData: [],
+            participantsData: internalParticipantsData,
             recommendations: null,
             timeAvailable: "",
             totalParticipants: 2,
@@ -213,15 +145,35 @@ describe("MovieForm", () => {
       </MovieProvider>
     );
 
-    const formData = new FormData();
-    formData.append("favouriteMovie", "Inception");
-    formData.append("favouriteFilmPerson", "Christopher Nolan");
+    const movieInput = screen.getByLabelText(/favourite movie/i) as HTMLTextAreaElement;
+    const personInput = screen.getByLabelText(/famous film person/i);
 
-    await mockSubmitAction(formData);
+    fireEvent.change(movieInput, { target: { value: "Inception" } });
+    fireEvent.change(personInput, { target: { value: "Christopher Nolan" } });
+
+    const submitBtn = screen.getByRole("button", { name: /next/i });
+    fireEvent.click(submitBtn);
 
     await waitFor(() => {
-      const movieInput = screen.getByLabelText(/favourite movie/i) as HTMLTextAreaElement;
       expect(movieInput.value).toBe("");
     });
+  });
+});
+
+// ---- Page default export ----
+import MovieFormPage from "./page";
+
+describe("MovieFormPage default export", () => {
+  beforeEach(() => {
+    (useRouter as jest.Mock).mockReturnValue({ push: jest.fn() });
+  });
+
+  it("renders without crashing (wraps MovieFormClient in MovieProvider)", () => {
+    render(
+      <MovieProvider>
+        <MovieFormPage />
+      </MovieProvider>
+    );
+    expect(screen.getByText("Person #1")).toBeInTheDocument();
   });
 });

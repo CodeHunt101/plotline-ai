@@ -257,4 +257,31 @@ describe("seedMovieEmbeddings", () => {
 
     await expect(seedMovieEmbeddings()).rejects.toThrow("Error inserting batch: Database error");
   });
+
+  it("calls embed without providerOptions when getEmbeddingProviderOptions returns null", async () => {
+    // Override the mock to return null for this test only
+    const { getEmbeddingProviderOptions } = require("@/config/ai");
+    (getEmbeddingProviderOptions as jest.Mock).mockReturnValueOnce(null);
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ isEmpty: true }),
+    });
+
+    (embed as jest.Mock)
+      .mockResolvedValueOnce({ embedding: [1, 2, 3] })
+      .mockResolvedValueOnce({ embedding: [1, 2, 3] });
+
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ success: true }),
+    });
+
+    await seedMovieEmbeddings();
+
+    // embed should have been called without providerOptions
+    expect(embed).toHaveBeenCalledWith(
+      expect.not.objectContaining({ providerOptions: expect.anything() })
+    );
+  });
 });

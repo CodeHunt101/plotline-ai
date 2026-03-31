@@ -13,8 +13,7 @@ Use `pnpm`.
 - `pnpm build`: create a production build.
 - `pnpm start`: serve the production build locally.
 - `pnpm lint`: run ESLint with the Next.js ruleset.
-- `pnpm test`: run Jest in watch mode.
-- `pnpm test:ci`: run the Jest suite once for CI-style verification.
+- `pnpm test`: run the Jest suite.
 - `pnpm test:coverage`: run Jest with coverage collection and enforce the 95% threshold.
 - `npx wrangler dev --config wrangler.supabase.toml`: run the Supabase worker.
 
@@ -24,7 +23,9 @@ TypeScript is `strict`, so prefer explicit types for props, service inputs, and 
 
 ## Testing Guidelines
 
-Jest and React Testing Library are the default tools. Keep tests beside the code they cover and name them `Component.test.tsx`, `service.test.ts`, or similar. Mock network calls in service tests and assert rendered behaviour in route and component tests. Coverage is enforced at 95% globally (branches, functions, lines, statements). After implementing a feature or making any code change, run `pnpm test:coverage`. Add or update tests for every bug fix and behaviour change.
+Jest and React Testing Library are the default tools. Keep tests beside the code they cover and name them `Component.test.tsx`, `service.test.ts`, or similar. Mock network calls in service tests and assert rendered behaviour in route and component tests. Test coverage is enforced.
+
+After any substantive code change, run `pnpm validate:push` (type-check + lint + coverage) to confirm nothing is broken before considering the task done.
 
 ## Commit & Pull Request Guidelines
 

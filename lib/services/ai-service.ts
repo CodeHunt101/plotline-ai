@@ -1,6 +1,6 @@
-import { generateText, type ModelMessage } from "ai";
+import { streamText, Output, type ModelMessage } from "ai";
 import { getLanguageModel } from "@/config/ai";
-import { stringifyMovieRecommendationsResponse } from "@/lib/utils/recommendations";
+import { movieRecommendationSchema } from "@/types/api";
 
 /** Instructions and JSON schema constraints for the recommendation model. */
 export const systemMessage: ModelMessage = {
@@ -58,56 +58,14 @@ export function buildRecommendationMessages(
   ];
 }
 
-/** Runs the recommendation model and normalises the JSON response. */
-export async function generateMovieRecommendationsFromMessages(
-  messages: ModelMessage[]
-): Promise<string> {
+/** Runs the recommendation model and returns the stream object result. */
+export async function streamMovieRecommendationsFromMessages(messages: ModelMessage[]) {
   const model = getLanguageModel();
-  const { text } = await generateText({
+
+  return streamText({
     model,
     messages,
+    output: Output.object({ schema: movieRecommendationSchema }),
     temperature: 0.65,
   });
-
-  return stringifyMovieRecommendationsResponse(text);
-}
-
-/**
- * Requests structured movie recommendations from `POST /api/movies`.
- * `text` is the movie-list context; `query` is the user-preferences string echoed into the user message.
- * Returns nothing when `text` is empty. Throws if the response is not OK or `content` is missing.
- */
-export async function getChatCompletion(
-  text: string,
-  query: string,
-  previousMessages: ModelMessage[] = []
-) {
-  if (!text) {
-    console.log("Sorry, I couldn't find any relevant information about that.");
-    return;
-  }
-
-  const response = await fetch("/api/movies", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      messages: buildRecommendationMessages(text, query, previousMessages),
-    }),
-  });
-
-  const data = (await response.json()) as { content?: unknown; error?: unknown };
-
-  if (!response.ok) {
-    throw new Error(
-      typeof data.error === "string" ? data.error : "Failed to get movie recommendations"
-    );
-  }
-
-  if (typeof data.content !== "string") {
-    throw new Error("Movie recommendations response was empty");
-  }
-
-  return data.content;
 }

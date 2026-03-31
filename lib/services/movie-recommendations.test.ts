@@ -1,13 +1,13 @@
 import { ParticipantsMovieData, MovieRecord } from "@/types/api";
-import { buildMovieRecommendations } from "./movie-recommendations";
+import { streamMovieRecommendations } from "./movie-recommendations";
 
 jest.mock("@/lib/services/embeddings-server", () => ({
   createServerEmbedding: jest.fn(),
 }));
 
-jest.mock("@/lib/services/openai", () => ({
+jest.mock("@/lib/services/ai-service", () => ({
   buildRecommendationMessages: jest.fn(() => [{ role: "user", content: "prompt" }]),
-  generateMovieRecommendationsFromMessages: jest.fn(),
+  streamMovieRecommendationsFromMessages: jest.fn(),
 }));
 
 jest.mock("@/lib/services/supabase", () => ({
@@ -17,11 +17,11 @@ jest.mock("@/lib/services/supabase", () => ({
 import { createServerEmbedding } from "@/lib/services/embeddings-server";
 import {
   buildRecommendationMessages,
-  generateMovieRecommendationsFromMessages,
-} from "@/lib/services/openai";
+  streamMovieRecommendationsFromMessages,
+} from "@/lib/services/ai-service";
 import { matchMoviesByEmbedding } from "@/lib/services/supabase";
 
-describe("buildMovieRecommendations", () => {
+describe("streamMovieRecommendations", () => {
   const mockMovieData: ParticipantsMovieData = {
     participantsData: [
       {
@@ -29,12 +29,6 @@ describe("buildMovieRecommendations", () => {
         movieType: "new",
         moodType: "inspiring",
         favouriteFilmPerson: "Christopher Nolan",
-      },
-      {
-        favouriteMovie: "The Lion King",
-        movieType: "classic",
-        moodType: "fun",
-        favouriteFilmPerson: "Morgan Freeman",
       },
     ],
     timeAvailable: "3 hours",
@@ -44,13 +38,8 @@ describe("buildMovieRecommendations", () => {
   const mockMatches: MovieRecord[] = [
     {
       id: 1,
-      content: "Movie 1: Inception (2010) - A mind-bending thriller. IMDB: 8.8",
+      content: "Movie 1: Inception (2010)",
       similarity: 0.9,
-    },
-    {
-      id: 2,
-      content: "Movie 2: The Dark Knight (2008) - A superhero epic. IMDB: 9.0",
-      similarity: 0.8,
     },
   ];
 
@@ -58,126 +47,39 @@ describe("buildMovieRecommendations", () => {
     jest.clearAllMocks();
   });
 
-  it("returns ranked recommendations on success", async () => {
+  it("returns a stream object on success", async () => {
     (createServerEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
     (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
-    (generateMovieRecommendationsFromMessages as jest.Mock).mockResolvedValue(
-      JSON.stringify({
-        recommendedMovies: [
-          {
-            name: "Inception",
-            releaseYear: "2010",
-            synopsis: "A mind-bending thriller. IMDB: 8.8",
-          },
-        ],
-      })
-    );
-
-    await expect(buildMovieRecommendations(mockMovieData)).resolves.toEqual({
-      match: mockMatches,
-      result: {
-        recommendedMovies: [
-          {
-            name: "Inception",
-            releaseYear: "2010",
-            synopsis: "A mind-bending thriller. IMDB: 8.8",
-          },
-        ],
-      },
+    (streamMovieRecommendationsFromMessages as jest.Mock).mockResolvedValue({
+      stream: "mocked_stream",
     });
 
+    const result = await streamMovieRecommendations(mockMovieData);
+
+    expect(result).toEqual({ stream: "mocked_stream" });
     expect(createServerEmbedding).toHaveBeenCalledWith(expect.stringContaining("Participant 1"));
     expect(matchMoviesByEmbedding).toHaveBeenCalledWith(mockEmbedding);
     expect(buildRecommendationMessages).toHaveBeenCalled();
   });
 
-  it("returns an empty result when retrieval finds no matches", async () => {
+  it("returns null when retrieval finds no matches", async () => {
     (createServerEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
     (matchMoviesByEmbedding as jest.Mock).mockResolvedValue([]);
 
-    await expect(buildMovieRecommendations(mockMovieData)).resolves.toEqual({
-      match: [],
-      result: { recommendedMovies: [] },
-    });
-    expect(generateMovieRecommendationsFromMessages).not.toHaveBeenCalled();
-  });
-
-  it("falls back to retrieval content when the model output is invalid", async () => {
-    (createServerEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
-    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
-    (generateMovieRecommendationsFromMessages as jest.Mock).mockResolvedValue("not valid json");
-
-    await expect(buildMovieRecommendations(mockMovieData)).resolves.toEqual({
-      match: mockMatches,
-      result: {
-        recommendedMovies: [
-          {
-            name: "Inception",
-            releaseYear: "2010",
-            synopsis: "A mind-bending thriller. IMDB: 8.8",
-          },
-          {
-            name: "The Dark Knight",
-            releaseYear: "2008",
-            synopsis: "A superhero epic. IMDB: 9.0",
-          },
-        ],
-      },
-    });
-  });
-
-  it("re-throws invalid model output when the fallback is unusable", async () => {
-    (createServerEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
-    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue([
-      {
-        id: 1,
-        content: "   ",
-        similarity: 0.9,
-      },
-    ]);
-    (generateMovieRecommendationsFromMessages as jest.Mock).mockResolvedValue("not valid json");
-
-    await expect(buildMovieRecommendations(mockMovieData)).rejects.toThrow(
-      "Movie recommendations response was not valid JSON"
-    );
-  });
-
-  it("falls back to retrieval content when the model returns an empty list", async () => {
-    (createServerEmbedding as jest.Mock).mockResolvedValue(mockEmbedding);
-    (matchMoviesByEmbedding as jest.Mock).mockResolvedValue(mockMatches);
-    (generateMovieRecommendationsFromMessages as jest.Mock).mockResolvedValue(
-      '{"recommendedMovies":[]}'
-    );
-
-    await expect(buildMovieRecommendations(mockMovieData)).resolves.toEqual({
-      match: mockMatches,
-      result: {
-        recommendedMovies: [
-          {
-            name: "Inception",
-            releaseYear: "2010",
-            synopsis: "A mind-bending thriller. IMDB: 8.8",
-          },
-          {
-            name: "The Dark Knight",
-            releaseYear: "2008",
-            synopsis: "A superhero epic. IMDB: 9.0",
-          },
-        ],
-      },
-    });
+    await expect(streamMovieRecommendations(mockMovieData)).resolves.toBeNull();
+    expect(streamMovieRecommendationsFromMessages).not.toHaveBeenCalled();
   });
 
   it("re-throws regular Error instances without wrapping them", async () => {
     (createServerEmbedding as jest.Mock).mockRejectedValue(new Error("Embedding failed"));
 
-    await expect(buildMovieRecommendations(mockMovieData)).rejects.toThrow("Embedding failed");
+    await expect(streamMovieRecommendations(mockMovieData)).rejects.toThrow("Embedding failed");
   });
 
   it("re-throws unknown errors as a generic Error", async () => {
     (createServerEmbedding as jest.Mock).mockRejectedValue("unexpected");
 
-    await expect(buildMovieRecommendations(mockMovieData)).rejects.toThrow(
+    await expect(streamMovieRecommendations(mockMovieData)).rejects.toThrow(
       "An unknown error occurred"
     );
   });

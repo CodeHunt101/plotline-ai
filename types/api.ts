@@ -21,3 +21,15 @@ export type MovieRecommendation = {
     }[];
   };
 };
+
+import { z } from "zod";
+
+export const movieRecommendationSchema = z.object({
+  recommendedMovies: z.array(
+    z.object({
+      name: z.string(),
+      releaseYear: z.string(),
+      synopsis: z.string(),
+    })
+  ),
+});

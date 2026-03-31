@@ -2,7 +2,7 @@ import { POST } from "./route";
 import { NextResponse } from "next/server";
 
 jest.mock("@/lib/services/movie-recommendations", () => ({
-  buildMovieRecommendations: jest.fn(),
+  streamMovieRecommendations: jest.fn(),
 }));
 
 jest.mock("next/server", () => ({
@@ -11,31 +11,43 @@ jest.mock("next/server", () => ({
   },
 }));
 
-import { buildMovieRecommendations } from "@/lib/services/movie-recommendations";
+import { streamMovieRecommendations } from "@/lib/services/movie-recommendations";
 
 describe("POST /api/recommendations", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("returns the recommendation payload on success", async () => {
+  it("returns the stream response on success", async () => {
     const request = {
       json: jest.fn().mockResolvedValue({ participantsData: [], timeAvailable: "2 hours" }),
     } as unknown as Request;
 
+    const mockStreamResponse = {} as Response;
     const mockRecommendation = {
-      match: [],
-      result: { recommendedMovies: [] },
+      toTextStreamResponse: jest.fn().mockReturnValue(mockStreamResponse),
     };
-    (buildMovieRecommendations as jest.Mock).mockResolvedValue(mockRecommendation);
+    (streamMovieRecommendations as jest.Mock).mockResolvedValue(mockRecommendation);
 
-    await POST(request);
+    const result = await POST(request);
 
-    expect(buildMovieRecommendations).toHaveBeenCalledWith({
+    expect(streamMovieRecommendations).toHaveBeenCalledWith({
       participantsData: [],
       timeAvailable: "2 hours",
     });
-    expect(NextResponse.json).toHaveBeenCalledWith(mockRecommendation);
+    expect(result).toBe(mockStreamResponse);
+  });
+
+  it("returns an empty recommendation payload when retrieval finds no matches", async () => {
+    const request = {
+      json: jest.fn().mockResolvedValue({ participantsData: [], timeAvailable: "2 hours" }),
+    } as unknown as Request;
+
+    (streamMovieRecommendations as jest.Mock).mockResolvedValue(null);
+
+    await POST(request);
+
+    expect(NextResponse.json).toHaveBeenCalledWith({ recommendedMovies: [] });
   });
 
   it("returns a 500 error when the service throws", async () => {
@@ -43,7 +55,7 @@ describe("POST /api/recommendations", () => {
       json: jest.fn().mockResolvedValue({ participantsData: [], timeAvailable: "2 hours" }),
     } as unknown as Request;
 
-    (buildMovieRecommendations as jest.Mock).mockRejectedValue(new Error("Pipeline failed"));
+    (streamMovieRecommendations as jest.Mock).mockRejectedValue(new Error("Pipeline failed"));
 
     await POST(request);
 
@@ -55,7 +67,7 @@ describe("POST /api/recommendations", () => {
       json: jest.fn().mockResolvedValue({ participantsData: [], timeAvailable: "2 hours" }),
     } as unknown as Request;
 
-    (buildMovieRecommendations as jest.Mock).mockRejectedValue("bad failure");
+    (streamMovieRecommendations as jest.Mock).mockRejectedValue("bad failure");
 
     await POST(request);
 

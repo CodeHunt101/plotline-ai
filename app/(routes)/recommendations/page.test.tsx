@@ -1,9 +1,10 @@
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useRouter } from "next/navigation";
 import { useMovieContext } from "@/contexts/MovieContext";
 import { searchMoviePoster } from "@/lib/services/tmdb";
 import Recommendations from "./RecommendationsClient";
 import { metadata } from "./page";
+import { experimental_useObject } from "@ai-sdk/react";
 
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
@@ -14,14 +15,17 @@ jest.mock("next/image", () => ({
   default: jest.requireActual("next/image").default,
 }));
 
-// Mock the movie poster service
-jest.mock("@/services/tmdb", () => ({
+jest.mock("@/lib/services/tmdb", () => ({
   searchMoviePoster: jest.fn(),
 }));
 
 jest.mock("@/contexts/MovieContext", () => ({
   useMovieContext: jest.fn(),
   MovieProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+jest.mock("@ai-sdk/react", () => ({
+  experimental_useObject: jest.fn(),
 }));
 
 describe("recommendations page metadata", () => {
@@ -40,38 +44,38 @@ describe("Recommendations Component", () => {
   const mockPush = jest.fn();
   const mockReplace = jest.fn();
   const mockResetMovieSession = jest.fn();
-
-  const mockRecommendations = {
-    match: [],
-    result: {
-      recommendedMovies: [
-        {
-          name: "Test Movie 1",
-          releaseYear: "2023",
-          synopsis: "Test synopsis 1",
-        },
-        {
-          name: "Test Movie 2",
-          releaseYear: "2024",
-          synopsis: "Test synopsis 2",
-        },
-      ],
-    },
-  };
+  const mockSubmit = jest.fn();
+  const mockClear = jest.fn();
+  const mockStop = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue({ push: mockPush, replace: mockReplace });
     (useMovieContext as jest.Mock).mockReturnValue({
-      recommendations: mockRecommendations,
+      participantsData: [{ favouriteMovie: "Matrix" }],
+      timeAvailable: "2 hours",
       resetMovieSession: mockResetMovieSession,
     });
     (searchMoviePoster as jest.Mock).mockResolvedValue("http://example.com/poster.jpg");
+    (experimental_useObject as jest.Mock).mockReturnValue({
+      object: {
+        recommendedMovies: [
+          { name: "Test Movie 1", releaseYear: "2023", synopsis: "Test synopsis 1" },
+          { name: "Test Movie 2", releaseYear: "2024", synopsis: "Test synopsis 2" },
+        ],
+      },
+      submit: mockSubmit,
+      isLoading: false,
+      error: undefined,
+      clear: mockClear,
+      stop: mockStop,
+    });
   });
 
-  it("navigates home if no recommendations", async () => {
+  it("navigates home if no participants form data is available", async () => {
     (useMovieContext as jest.Mock).mockReturnValue({
-      recommendations: null,
+      participantsData: [],
+      timeAvailable: "",
       resetMovieSession: mockResetMovieSession,
     });
 
@@ -82,11 +86,20 @@ describe("Recommendations Component", () => {
     });
   });
 
+  it("calls submit on initial render to start the stream if data exists", async () => {
+    render(<Recommendations />);
+    await waitFor(() => {
+      expect(mockSubmit).toHaveBeenCalledWith({
+        participantsData: [{ favouriteMovie: "Matrix" }],
+        timeAvailable: "2 hours",
+      });
+    });
+  });
+
   it("displays movie information correctly", async () => {
     render(<Recommendations />);
 
-    // Check if the first movie is displayed
-    waitFor(() => {
+    await waitFor(() => {
       expect(screen.getByText("Test Movie 1 (2023)")).toBeInTheDocument();
       expect(screen.getByText("Test synopsis 1")).toBeInTheDocument();
       expect(screen.getByText("Movie 1 of 2")).toBeInTheDocument();
@@ -98,7 +111,9 @@ describe("Recommendations Component", () => {
 
     render(<Recommendations />);
 
-    expect(screen.getByTestId("poster-loading")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("poster-loading")).toBeInTheDocument();
+    });
   });
 
   it("handles next movie button click", async () => {
@@ -107,117 +122,248 @@ describe("Recommendations Component", () => {
     const nextButton = screen.getByText("Next Movie");
     fireEvent.click(nextButton);
 
-    // Check if the second movie is displayed
-    waitFor(() => {
+    await waitFor(() => {
       expect(screen.getByText("Test Movie 2 (2024)")).toBeInTheDocument();
       expect(screen.getByText("Test synopsis 2")).toBeInTheDocument();
       expect(screen.getByText("Movie 2 of 2")).toBeInTheDocument();
     });
   });
 
-  it("cycles back to first movie after last movie", async () => {
-    render(<Recommendations />);
-
-    // Click through all movies and back to first
-    const nextButton = screen.getByText("Next Movie");
-    fireEvent.click(nextButton); // Goes to second movie
-    fireEvent.click(nextButton); // Should cycle back to first movie
-
-    waitFor(() => {
-      expect(screen.getByText("Test Movie 1 (2023)")).toBeInTheDocument();
+  it("handles empty objects nicely when stream starts", async () => {
+    (experimental_useObject as jest.Mock).mockReturnValue({
+      object: undefined,
+      submit: mockSubmit,
+      isLoading: true,
+      error: undefined,
+      clear: mockClear,
+      stop: mockStop,
     });
-  });
-
-  it("handles poster fetch error gracefully", async () => {
-    (searchMoviePoster as jest.Mock).mockRejectedValue(new Error("Failed to fetch"));
 
     render(<Recommendations />);
-
-    // Wait for the loading state to finish
-    waitFor(() => {
-      expect(screen.queryByTestId("poster-loading")).not.toBeInTheDocument();
-    });
-
-    // Should still show movie information even if poster fails
-    expect(screen.getByText("Test Movie 1 (2023)")).toBeInTheDocument();
-  });
-
-  it("clears the session and navigates home after recommendations are reset", async () => {
-    let currentRecommendations: typeof mockRecommendations | null = mockRecommendations;
-    mockResetMovieSession.mockImplementation(() => {
-      currentRecommendations = null;
-    });
-    (useMovieContext as jest.Mock).mockImplementation(() => ({
-      recommendations: currentRecommendations,
-      resetMovieSession: mockResetMovieSession,
-    }));
-
-    const { rerender } = render(<Recommendations />);
-
-    const startOverButton = screen.getByText("Start Over");
-    fireEvent.click(startOverButton);
-
-    expect(mockResetMovieSession).toHaveBeenCalledTimes(1);
-
-    rerender(<Recommendations />);
 
     await waitFor(() => {
-      expect(mockResetMovieSession).toHaveBeenCalledTimes(1);
-      expect(mockReplace).toHaveBeenCalledWith("/");
+      expect(screen.getByText("Generating recommendations...")).toBeInTheDocument();
+    });
+  });
+  it("shows the error UI when the stream returns an error", async () => {
+    (experimental_useObject as jest.Mock).mockReturnValue({
+      object: undefined,
+      submit: mockSubmit,
+      isLoading: false,
+      error: { message: "Something went wrong" },
+      clear: mockClear,
+      stop: mockStop,
+    });
+
+    render(<Recommendations />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Oops! Something went wrong")).toBeInTheDocument();
+      expect(screen.getByText(/We ran into a streaming issue/)).toBeInTheDocument();
     });
   });
 
-  it("displays no recommendations message when recommendations array is empty", () => {
-    (useMovieContext as jest.Mock).mockReturnValue({
-      recommendations: {
-        match: [],
-        result: {
-          recommendedMovies: [],
-        },
+  it("shows the friendly AI-exhausted message when the error contains 'All language models exhausted'", async () => {
+    (experimental_useObject as jest.Mock).mockReturnValue({
+      object: undefined,
+      submit: mockSubmit,
+      isLoading: false,
+      error: { message: "All language models exhausted" },
+      clear: mockClear,
+      stop: mockStop,
+    });
+
+    render(<Recommendations />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/AI movie experts are currently overwhelmed/)).toBeInTheDocument();
+    });
+  });
+
+  it("shows the stream debugger while loading with movies in the list", async () => {
+    (experimental_useObject as jest.Mock).mockReturnValue({
+      object: {
+        recommendedMovies: [{ name: "Test Movie 1", releaseYear: "2023", synopsis: "Syn 1" }],
       },
-      resetMovieSession: mockResetMovieSession,
+      submit: mockSubmit,
+      isLoading: true,
+      error: undefined,
+      clear: mockClear,
+      stop: mockStop,
     });
-
-    render(<Recommendations />);
-    expect(screen.getByText("No recommendations found")).toBeInTheDocument();
-  });
-
-  it("uses empty string as poster URL when searchMoviePoster resolves with undefined", async () => {
-    (searchMoviePoster as jest.Mock).mockResolvedValue(undefined);
 
     render(<Recommendations />);
 
     await waitFor(() => {
-      expect(screen.queryByTestId("poster-loading")).not.toBeInTheDocument();
+      expect(screen.getByTestId("stream-debugger")).toBeInTheDocument();
+      expect(screen.getByText(/Movies parsed from stream so far: 1/)).toBeInTheDocument();
     });
-
-    // Movie text info is still shown even without a valid poster URL
-    expect(screen.getByText(/Test Movie 1/)).toBeInTheDocument();
   });
 
-  it("uses cached poster URL without re-fetching on revisit", async () => {
+  it("uses cached poster on second navigation to the same movie", async () => {
+    // Start with two movies; navigate to second and back to first to trigger POSTER_CACHE_HIT
+    (experimental_useObject as jest.Mock).mockReturnValue({
+      object: {
+        recommendedMovies: [
+          { name: "Cached Movie", releaseYear: "2000", synopsis: "Hit" },
+          { name: "Second Movie", releaseYear: "2001", synopsis: "Miss" },
+        ],
+      },
+      submit: mockSubmit,
+      isLoading: false,
+      error: undefined,
+      clear: mockClear,
+      stop: mockStop,
+    });
+    (searchMoviePoster as jest.Mock).mockResolvedValue("http://example.com/poster.jpg");
+
     render(<Recommendations />);
 
-    // Wait for first movie's poster to finish loading
+    // Wait for first poster to load
     await waitFor(() => {
-      expect(screen.queryByTestId("poster-loading")).not.toBeInTheDocument();
+      expect(screen.getByText("Cached Movie (2000)")).toBeInTheDocument();
     });
 
     // Navigate to second movie
     fireEvent.click(screen.getByText("Next Movie"));
 
-    // Wait for second movie's poster to be fetched
     await waitFor(() => {
-      expect(searchMoviePoster).toHaveBeenCalledWith("Test Movie 2");
+      expect(screen.getByText("Second Movie (2001)")).toBeInTheDocument();
     });
 
-    // Navigate back to first movie (cycles)
+    // Navigate back to first — should hit the cache (POSTER_CACHE_HIT action)
     fireEvent.click(screen.getByText("Next Movie"));
 
-    // Allow React to process the effect (should hit cache, not re-fetch)
-    await act(async () => {});
+    await waitFor(() => {
+      expect(screen.getByText("Cached Movie (2000)")).toBeInTheDocument();
+    });
 
-    // Only 2 fetches total — the cache prevents re-fetching movie 1
+    // searchMoviePoster should have been called only twice (once per unique movie name)
     expect(searchMoviePoster).toHaveBeenCalledTimes(2);
+  });
+
+  it("handles POSTER_FETCH_ERROR gracefully (shows no poster image)", async () => {
+    (searchMoviePoster as jest.Mock).mockRejectedValue(new Error("TMDB unavailable"));
+    jest.spyOn(console, "error").mockImplementation(() => {});
+
+    render(<Recommendations />);
+
+    await waitFor(() => {
+      // No poster-loading spinner and no <img> because url is empty
+      expect(screen.queryByTestId("poster-loading")).not.toBeInTheDocument();
+    });
+  });
+
+  it("wraps back to the first movie when clicking Next on the last movie", async () => {
+    (experimental_useObject as jest.Mock).mockReturnValue({
+      object: {
+        recommendedMovies: [
+          { name: "Film A", releaseYear: "2001", synopsis: "Syn A" },
+          { name: "Film B", releaseYear: "2002", synopsis: "Syn B" },
+        ],
+      },
+      submit: mockSubmit,
+      isLoading: false,
+      error: undefined,
+      clear: mockClear,
+      stop: mockStop,
+    });
+
+    render(<Recommendations />);
+
+    await waitFor(() => expect(screen.getByText("Film A (2001)")).toBeInTheDocument());
+
+    // Go to last
+    fireEvent.click(screen.getByText("Next Movie"));
+    await waitFor(() => expect(screen.getByText("Film B (2002)")).toBeInTheDocument());
+
+    // Wrap around
+    fireEvent.click(screen.getByText("Next Movie"));
+    await waitFor(() => expect(screen.getByText("Film A (2001)")).toBeInTheDocument());
+  });
+
+  it("waits for a settled streamed movie before fetching the poster", async () => {
+    (experimental_useObject as jest.Mock).mockReturnValue({
+      object: {
+        recommendedMovies: [{ name: "Inc" }],
+      },
+      submit: mockSubmit,
+      isLoading: true,
+      error: undefined,
+      clear: mockClear,
+      stop: mockStop,
+    });
+
+    render(<Recommendations />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Generating recommendations...")).toBeInTheDocument();
+    });
+    expect(searchMoviePoster).not.toHaveBeenCalled();
+  });
+
+  it("shows a no-results state when the stream finishes empty", async () => {
+    (experimental_useObject as jest.Mock).mockReturnValue({
+      object: { recommendedMovies: [] },
+      submit: mockSubmit,
+      isLoading: false,
+      error: undefined,
+      clear: mockClear,
+      stop: mockStop,
+    });
+
+    render(<Recommendations />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("no-recommendations")).toBeInTheDocument();
+      expect(screen.getByText("No strong matches this time")).toBeInTheDocument();
+    });
+  });
+
+  it("clears the active stream and navigates home when Start Over is pressed", async () => {
+    (experimental_useObject as jest.Mock).mockReturnValue({
+      object: undefined,
+      submit: mockSubmit,
+      isLoading: true,
+      error: undefined,
+      clear: mockClear,
+      stop: mockStop,
+    });
+
+    render(<Recommendations />);
+
+    fireEvent.click(screen.getByText("Start Over"));
+
+    expect(mockClear).toHaveBeenCalledTimes(1);
+    expect(mockResetMovieSession).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith("/");
+  });
+});
+
+// ---- Page default export ----
+import RecommendationsPage from "./page";
+
+describe("RecommendationsPage default export", () => {
+  beforeEach(() => {
+    (useRouter as jest.Mock).mockReturnValue({ push: jest.fn(), replace: jest.fn() });
+    (useMovieContext as jest.Mock).mockReturnValue({
+      participantsData: [],
+      timeAvailable: "",
+      resetMovieSession: jest.fn(),
+    });
+    (experimental_useObject as jest.Mock).mockReturnValue({
+      object: undefined,
+      submit: jest.fn(),
+      isLoading: false,
+      error: undefined,
+      clear: jest.fn(),
+      stop: jest.fn(),
+    });
+  });
+
+  it("renders without crashing", () => {
+    render(<RecommendationsPage />);
+    // The page renders RecommendationsClient which triggers a redirect when no data,
+    // but it should render (not throw)
   });
 });

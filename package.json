@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
-    "test": "jest --watch",
+    "test": "jest",
     "test:ci": "jest --ci",
     "test:coverage": "jest --coverage",
     "prepare": "husky"
@@ -22,13 +22,15 @@
   "dependencies": {
     "@ai-sdk/google": "^3.0.53",
     "@ai-sdk/openai": "^3.0.48",
+    "@ai-sdk/react": "^3.0.143",
     "@supabase/supabase-js": "2.38.2",
     "ai": "^6.0.141",
     "ai-gateway-provider": "^3.1.2",
     "lucide-react": "^1.7.0",
     "next": "16.2.1",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241224.0",

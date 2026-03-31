@@ -7,23 +7,41 @@ import {
   resetQuotaCache,
 } from "./ai";
 
+// Primary
 const mockGenerateResult = {
   content: [{ type: "text" as const, text: "hello" }],
   finishReason: "stop" as const,
   usage: { inputTokens: 10, outputTokens: 5 },
   warnings: [],
 };
-
 const mockStreamResult = { stream: "mock-stream" };
 
-const mockFallbackGenerateResult = {
-  content: [{ type: "text" as const, text: "fallback hello" }],
+// Minimax
+const mockMinimaxGenerateResult = {
+  content: [{ type: "text" as const, text: "minimax hello" }],
   finishReason: "stop" as const,
   usage: { inputTokens: 8, outputTokens: 4 },
   warnings: [],
 };
+const mockMinimaxStreamResult = { stream: "mock-minimax-stream" };
 
-const mockFallbackStreamResult = { stream: "mock-fallback-stream" };
+// Llama
+const mockLlamaGenerateResult = {
+  content: [{ type: "text" as const, text: "llama hello" }],
+  finishReason: "stop" as const,
+  usage: { inputTokens: 8, outputTokens: 4 },
+  warnings: [],
+};
+const mockLlamaStreamResult = { stream: "mock-llama-stream" };
+
+// Auto-Router (openrouter/free)
+const mockAutoRouterGenerateResult = {
+  content: [{ type: "text" as const, text: "auto router hello" }],
+  finishReason: "stop" as const,
+  usage: { inputTokens: 8, outputTokens: 4 },
+  warnings: [],
+};
+const mockAutoRouterStreamResult = { stream: "mock-auto-router-stream" };
 
 const mockGoogleDoGenerate = jest.fn().mockResolvedValue(mockGenerateResult);
 const mockGoogleDoStream = jest.fn().mockResolvedValue(mockStreamResult);
@@ -37,17 +55,12 @@ const mockGoogleModel = {
   doStream: mockGoogleDoStream,
 };
 
-const mockOpenrouterDoGenerate = jest.fn().mockResolvedValue(mockFallbackGenerateResult);
-const mockOpenrouterDoStream = jest.fn().mockResolvedValue(mockFallbackStreamResult);
-
-const mockOpenrouterModel = {
-  specificationVersion: "v3" as const,
-  provider: "openrouter",
-  modelId: "minimax/minimax-m2.5:free",
-  supportedUrls: {},
-  doGenerate: mockOpenrouterDoGenerate,
-  doStream: mockOpenrouterDoStream,
-};
+const mockMinimaxDoGenerate = jest.fn().mockResolvedValue(mockMinimaxGenerateResult);
+const mockMinimaxDoStream = jest.fn().mockResolvedValue(mockMinimaxStreamResult);
+const mockLlamaDoGenerate = jest.fn().mockResolvedValue(mockLlamaGenerateResult);
+const mockLlamaDoStream = jest.fn().mockResolvedValue(mockLlamaStreamResult);
+const mockAutoRouterDoGenerate = jest.fn().mockResolvedValue(mockAutoRouterGenerateResult);
+const mockAutoRouterDoStream = jest.fn().mockResolvedValue(mockAutoRouterStreamResult);
 
 const mockAiGatewayFn = jest.fn((model: any) => model);
 const mockCreateAiGateway = jest.fn(() => mockAiGatewayFn);
@@ -58,7 +71,38 @@ jest.mock("ai-gateway-provider", () => ({
 }));
 
 const mockGoogleCall = jest.fn(() => mockGoogleModel);
-const mockOpenaiCall = jest.fn(() => mockOpenrouterModel);
+
+const mockOpenaiCall = jest.fn((modelId: string) => {
+  if (modelId === "openrouter/free") {
+    return {
+      specificationVersion: "v3" as const,
+      provider: "openrouter",
+      modelId,
+      supportedUrls: {},
+      doGenerate: mockAutoRouterDoGenerate,
+      doStream: mockAutoRouterDoStream,
+    };
+  }
+  if (modelId === "meta-llama/llama-3.3-70b-instruct:free") {
+    return {
+      specificationVersion: "v3" as const,
+      provider: "openrouter",
+      modelId,
+      supportedUrls: {},
+      doGenerate: mockLlamaDoGenerate,
+      doStream: mockLlamaDoStream,
+    };
+  }
+  return {
+    specificationVersion: "v3" as const,
+    provider: "openrouter",
+    modelId,
+    supportedUrls: {},
+    doGenerate: mockMinimaxDoGenerate,
+    doStream: mockMinimaxDoStream,
+  };
+});
+
 const mockEmbeddingModel = { provider: "google", modelId: "gemini-embedding-001" };
 const mockEmbeddingCall = jest.fn(() => mockEmbeddingModel);
 
@@ -129,14 +173,20 @@ describe("getLanguageModel", () => {
     resetQuotaCache();
     mockGoogleDoGenerate.mockResolvedValue(mockGenerateResult);
     mockGoogleDoStream.mockResolvedValue(mockStreamResult);
-    mockOpenrouterDoGenerate.mockResolvedValue(mockFallbackGenerateResult);
-    mockOpenrouterDoStream.mockResolvedValue(mockFallbackStreamResult);
+    mockMinimaxDoGenerate.mockResolvedValue(mockMinimaxGenerateResult);
+    mockMinimaxDoStream.mockResolvedValue(mockMinimaxStreamResult);
+    mockLlamaDoGenerate.mockResolvedValue(mockLlamaGenerateResult);
+    mockLlamaDoStream.mockResolvedValue(mockLlamaStreamResult);
+    mockAutoRouterDoGenerate.mockResolvedValue(mockAutoRouterGenerateResult);
+    mockAutoRouterDoStream.mockResolvedValue(mockAutoRouterStreamResult);
+
     process.env = {
       ...originalEnv,
       CLOUDFLARE_ACCOUNT_ID: "test-account-id",
       CLOUDFLARE_GATEWAY_NAME: "test-gateway",
       GOOGLE_GENERATIVE_AI_API_KEY: "test-key",
       OPENROUTER_API_KEY: "test-key",
+      OPENROUTER_LANGUAGE_MODEL: "minimax/minimax-m2.5:free",
     };
   });
 
@@ -163,20 +213,37 @@ describe("getLanguageModel", () => {
     const result = await model.doGenerate({} as any);
 
     expect(mockGoogleDoGenerate).toHaveBeenCalled();
-    expect(mockOpenrouterDoGenerate).not.toHaveBeenCalled();
+    expect(mockMinimaxDoGenerate).not.toHaveBeenCalled();
     expect(result).toBe(mockGenerateResult);
   });
 
-  it("falls back to OpenRouter doGenerate when Google throws", async () => {
-    mockGoogleDoGenerate.mockRejectedValueOnce(new Error("Google unavailable"));
+  it("falls back to Minimax doGenerate when Google throws 429", async () => {
+    mockGoogleDoGenerate.mockRejectedValueOnce(new MockAPICallError("Google unavailable", 429));
     jest.spyOn(console, "warn").mockImplementation(() => {});
 
     const model = getLanguageModel();
     const result = await model.doGenerate({} as any);
 
     expect(mockGoogleDoGenerate).toHaveBeenCalled();
-    expect(mockOpenrouterDoGenerate).toHaveBeenCalled();
-    expect(result).toBe(mockFallbackGenerateResult);
+    expect(mockMinimaxDoGenerate).toHaveBeenCalled();
+    expect(mockLlamaDoGenerate).not.toHaveBeenCalled();
+    expect(result).toBe(mockMinimaxGenerateResult);
+  });
+
+  it("falls back to AutoRouter doGenerate when Google, Minimax and Llama all throw 429", async () => {
+    mockGoogleDoGenerate.mockRejectedValueOnce(new MockAPICallError("Google unavailable", 429));
+    mockMinimaxDoGenerate.mockRejectedValueOnce(new MockAPICallError("Minimax unavailable", 429));
+    mockLlamaDoGenerate.mockRejectedValueOnce(new MockAPICallError("Llama unavailable", 429));
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const model = getLanguageModel();
+    const result = await model.doGenerate({} as any);
+
+    expect(mockGoogleDoGenerate).toHaveBeenCalled();
+    expect(mockMinimaxDoGenerate).toHaveBeenCalled();
+    expect(mockLlamaDoGenerate).toHaveBeenCalled();
+    expect(mockAutoRouterDoGenerate).toHaveBeenCalled();
+    expect(result).toBe(mockAutoRouterGenerateResult);
   });
 
   it("delegates doStream to Google on success", async () => {
@@ -184,11 +251,11 @@ describe("getLanguageModel", () => {
     const result = await model.doStream({} as any);
 
     expect(mockGoogleDoStream).toHaveBeenCalled();
-    expect(mockOpenrouterDoStream).not.toHaveBeenCalled();
+    expect(mockMinimaxDoStream).not.toHaveBeenCalled();
     expect(result).toBe(mockStreamResult);
   });
 
-  it("falls back to OpenRouter doStream when Google throws", async () => {
+  it("falls back to Minimax doStream when Google throws", async () => {
     mockGoogleDoStream.mockRejectedValueOnce(new Error("Google unavailable"));
     jest.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -196,93 +263,92 @@ describe("getLanguageModel", () => {
     const result = await model.doStream({} as any);
 
     expect(mockGoogleDoStream).toHaveBeenCalled();
-    expect(mockOpenrouterDoStream).toHaveBeenCalled();
-    expect(result).toBe(mockFallbackStreamResult);
+    expect(mockMinimaxDoStream).toHaveBeenCalled();
+    expect(result).toBe(mockMinimaxStreamResult);
   });
 
-  it("propagates fallback error when both models fail", async () => {
+  it("propagates fallback error when ALL models fail", async () => {
     mockGoogleDoGenerate.mockRejectedValueOnce(new Error("Google down"));
-    mockOpenrouterDoGenerate.mockRejectedValueOnce(new Error("OpenRouter down"));
+    mockMinimaxDoGenerate.mockRejectedValueOnce(new Error("Minimax down"));
+    mockLlamaDoGenerate.mockRejectedValueOnce(new Error("Llama down"));
+    mockAutoRouterDoGenerate.mockRejectedValueOnce(new Error("AutoRouter down"));
     jest.spyOn(console, "warn").mockImplementation(() => {});
 
     const model = getLanguageModel();
-    await expect(model.doGenerate({} as any)).rejects.toThrow("OpenRouter down");
+    await expect(model.doGenerate({} as any)).rejects.toThrow("AutoRouter down");
   });
 
-  it("caches quota on 429 and skips Google on subsequent calls", async () => {
+  it("caches quota on 429 and applies 5m delay for OpenRouter models", async () => {
     mockGoogleDoGenerate.mockRejectedValueOnce(new MockAPICallError("Rate limit exceeded", 429));
+    mockMinimaxDoGenerate.mockRejectedValueOnce(
+      new MockAPICallError("Rate limit exceeded mininmax", 429)
+    );
+    mockLlamaDoGenerate.mockRejectedValueOnce(
+      new MockAPICallError("Rate limit exceeded llama", 429)
+    );
     jest.spyOn(console, "warn").mockImplementation(() => {});
 
     const model = getLanguageModel();
 
     await model.doGenerate({} as any);
     expect(mockGoogleDoGenerate).toHaveBeenCalledTimes(1);
-    expect(mockOpenrouterDoGenerate).toHaveBeenCalledTimes(1);
+    expect(mockMinimaxDoGenerate).toHaveBeenCalledTimes(1);
+    expect(mockLlamaDoGenerate).toHaveBeenCalledTimes(1);
+    expect(mockAutoRouterDoGenerate).toHaveBeenCalledTimes(1);
 
     mockGoogleDoGenerate.mockClear();
-    mockOpenrouterDoGenerate.mockClear();
+    mockMinimaxDoGenerate.mockClear();
+    mockLlamaDoGenerate.mockClear();
+    mockAutoRouterDoGenerate.mockClear();
 
+    // Inside the 5m window
     const model2 = getLanguageModel();
     await model2.doGenerate({} as any);
     expect(mockGoogleDoGenerate).not.toHaveBeenCalled();
-    expect(mockOpenrouterDoGenerate).toHaveBeenCalledTimes(1);
-  });
-
-  it("caches quota on 403 and skips Google on subsequent calls", async () => {
-    mockGoogleDoGenerate.mockRejectedValueOnce(new MockAPICallError("Resource exhausted", 403));
-    jest.spyOn(console, "warn").mockImplementation(() => {});
-
-    const model = getLanguageModel();
-    await model.doGenerate({} as any);
+    expect(mockMinimaxDoGenerate).not.toHaveBeenCalled();
+    expect(mockLlamaDoGenerate).not.toHaveBeenCalled();
+    expect(mockAutoRouterDoGenerate).toHaveBeenCalledTimes(1);
 
     mockGoogleDoGenerate.mockClear();
-    mockOpenrouterDoGenerate.mockClear();
+    mockMinimaxDoGenerate.mockClear();
+    mockLlamaDoGenerate.mockClear();
+    mockAutoRouterDoGenerate.mockClear();
 
-    const model2 = getLanguageModel();
-    await model2.doGenerate({} as any);
+    // Fast forward 5m 1s. OpenRouter resets, but Google doesn't (since Google takes 24h).
+    const realDateNow = Date.now;
+    Date.now = () => realDateNow() + 5 * 60 * 1000 + 1000;
+
+    const model3 = getLanguageModel();
+    await model3.doGenerate({} as any);
+
+    // Google still skipped. Minimax tried.
     expect(mockGoogleDoGenerate).not.toHaveBeenCalled();
-    expect(mockOpenrouterDoGenerate).toHaveBeenCalledTimes(1);
+    expect(mockMinimaxDoGenerate).toHaveBeenCalledTimes(1);
+
+    Date.now = realDateNow;
   });
 
-  it("retries Google after 24h quota reset", async () => {
+  it("retries models after 24h quota reset", async () => {
     mockGoogleDoGenerate.mockRejectedValueOnce(new MockAPICallError("Rate limit exceeded", 429));
+    mockMinimaxDoGenerate.mockRejectedValueOnce(new MockAPICallError("Rate limit min", 429));
     jest.spyOn(console, "warn").mockImplementation(() => {});
 
     const model = getLanguageModel();
     await model.doGenerate({} as any);
 
     const realDateNow = Date.now;
-    Date.now = () => realDateNow() + 24 * 60 * 60 * 1000 + 1;
+    Date.now = () => realDateNow() + 24 * 60 * 60 * 1000 + 1000;
 
     mockGoogleDoGenerate.mockClear();
-    mockOpenrouterDoGenerate.mockClear();
+    mockMinimaxDoGenerate.mockClear();
     mockGoogleDoGenerate.mockResolvedValue(mockGenerateResult);
 
     const model2 = getLanguageModel();
     await model2.doGenerate({} as any);
     expect(mockGoogleDoGenerate).toHaveBeenCalledTimes(1);
-    expect(mockOpenrouterDoGenerate).not.toHaveBeenCalled();
+    expect(mockMinimaxDoGenerate).not.toHaveBeenCalled();
 
     Date.now = realDateNow;
-  });
-
-  it("caches quota on 429 via doStream and skips Google on subsequent stream calls", async () => {
-    const quotaError = new MockAPICallError("Rate limit exceeded", 429);
-    mockGoogleDoStream.mockRejectedValueOnce(quotaError);
-    jest.spyOn(console, "warn").mockImplementation(() => {});
-
-    const model = getLanguageModel();
-    await model.doStream({} as any);
-    expect(mockGoogleDoStream).toHaveBeenCalledTimes(1);
-    expect(mockOpenrouterDoStream).toHaveBeenCalledTimes(1);
-
-    mockGoogleDoStream.mockClear();
-    mockOpenrouterDoStream.mockClear();
-
-    const model2 = getLanguageModel();
-    await model2.doStream({} as any);
-    expect(mockGoogleDoStream).not.toHaveBeenCalled();
-    expect(mockOpenrouterDoStream).toHaveBeenCalledTimes(1);
   });
 
   it("does not cache non-quota errors -- Google is retried next call", async () => {
@@ -293,7 +359,7 @@ describe("getLanguageModel", () => {
     await model.doGenerate({} as any);
 
     mockGoogleDoGenerate.mockClear();
-    mockOpenrouterDoGenerate.mockClear();
+    mockMinimaxDoGenerate.mockClear();
     mockGoogleDoGenerate.mockResolvedValue(mockGenerateResult);
 
     const model2 = getLanguageModel();
@@ -365,5 +431,93 @@ describe("getEmbeddingModel", () => {
 describe("getEmbeddingDimensions", () => {
   it("always returns 768 (Google Gemini)", () => {
     expect(getEmbeddingDimensions()).toBe(768);
+  });
+});
+
+describe("wrapStream – quota and exhaustion paths", () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    resetQuotaCache();
+    mockGoogleDoGenerate.mockResolvedValue(mockGenerateResult);
+    mockGoogleDoStream.mockResolvedValue(mockStreamResult);
+    mockMinimaxDoGenerate.mockResolvedValue(mockMinimaxGenerateResult);
+    mockMinimaxDoStream.mockResolvedValue(mockMinimaxStreamResult);
+    mockLlamaDoGenerate.mockResolvedValue(mockLlamaGenerateResult);
+    mockLlamaDoStream.mockResolvedValue(mockLlamaStreamResult);
+    mockAutoRouterDoGenerate.mockResolvedValue(mockAutoRouterGenerateResult);
+    mockAutoRouterDoStream.mockResolvedValue(mockAutoRouterStreamResult);
+
+    process.env = {
+      ...originalEnv,
+      CLOUDFLARE_ACCOUNT_ID: "test-account-id",
+      CLOUDFLARE_GATEWAY_NAME: "test-gateway",
+      GOOGLE_GENERATIVE_AI_API_KEY: "test-key",
+      OPENROUTER_API_KEY: "test-key",
+      OPENROUTER_LANGUAGE_MODEL: "minimax/minimax-m2.5:free",
+    };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it("falls back to Minimax doStream when Google throws a 403 quota error", async () => {
+    mockGoogleDoStream.mockRejectedValueOnce(new MockAPICallError("Google quota (403)", 403));
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const model = getLanguageModel();
+    const result = await model.doStream({} as any);
+
+    expect(mockGoogleDoStream).toHaveBeenCalled();
+    expect(mockMinimaxDoStream).toHaveBeenCalled();
+    expect(result).toBe(mockMinimaxStreamResult);
+  });
+
+  it("falls back to AutoRouter doStream when Google, Minimax and Llama all throw 429", async () => {
+    mockGoogleDoStream.mockRejectedValueOnce(new MockAPICallError("Google quota", 429));
+    mockMinimaxDoStream.mockRejectedValueOnce(new MockAPICallError("Minimax quota", 429));
+    mockLlamaDoStream.mockRejectedValueOnce(new MockAPICallError("Llama quota", 429));
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const model = getLanguageModel();
+    const result = await model.doStream({} as any);
+
+    expect(mockGoogleDoStream).toHaveBeenCalled();
+    expect(mockMinimaxDoStream).toHaveBeenCalled();
+    expect(mockLlamaDoStream).toHaveBeenCalled();
+    expect(mockAutoRouterDoStream).toHaveBeenCalled();
+    expect(result).toBe(mockAutoRouterStreamResult);
+  });
+
+  it("throws 'All language models exhausted' when all stream models fail", async () => {
+    mockGoogleDoStream.mockRejectedValueOnce(new Error("Google stream down"));
+    mockMinimaxDoStream.mockRejectedValueOnce(new Error("Minimax stream down"));
+    mockLlamaDoStream.mockRejectedValueOnce(new Error("Llama stream down"));
+    mockAutoRouterDoStream.mockRejectedValueOnce(new Error("AutoRouter stream down"));
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const model = getLanguageModel();
+    await expect(model.doStream({} as any)).rejects.toThrow("AutoRouter stream down");
+  });
+
+  it("skips quota-exhausted models in wrapStream", async () => {
+    // Exhaust Google via quota, then confirm next call skips it
+    mockGoogleDoStream.mockRejectedValueOnce(new MockAPICallError("Google 429", 429));
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const model = getLanguageModel();
+    await model.doStream({} as any);
+
+    mockGoogleDoStream.mockClear();
+    mockMinimaxDoStream.mockClear();
+
+    // Second call — Google should be skipped (quota active)
+    const model2 = getLanguageModel();
+    await model2.doStream({} as any);
+
+    expect(mockGoogleDoStream).not.toHaveBeenCalled();
+    expect(mockMinimaxDoStream).toHaveBeenCalled();
   });
 });

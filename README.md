@@ -25,8 +25,6 @@ graph TD
     subgraph NextJS["Next.js App"]
         Pages["Pages\n/  /movieForm  /recommendations"]
         API_Rec["POST /api/recommendations"]
-        API_Emb["POST /api/embeddings"]
-        API_Mov["POST /api/movies"]
         API_Seed["GET /api/embeddings-seed"]
 
         subgraph Services["lib/services/"]
@@ -46,20 +44,17 @@ graph TD
 
     subgraph ExternalAPIs["External APIs"]
         Gemini["Google Gemini\ngemini-embedding-001\ngemini-2.5-flash"]
-        OpenRouter["OpenRouter\nminimax-m2.5"]
+        OpenRouter["OpenRouter\nminimax-m2.5\nllama-3.3-70b\nopenrouter/free"]
         SupabaseDB["Supabase Postgres\nmovies_4 + pgvector\nmatch_movies_4 RPC"]
-        TMDB["TMDB API\nmovie posters"]
+        TMDB["TMDB API\ movie posters"]
     end
 
     Browser -->|"form submit / navigate"| Pages
     Pages -->|"fetch"| API_Rec
-    Pages -->|"fetch"| API_Emb
     API_Rec --> SvcRec
     SvcRec --> SvcEmb
     SvcRec --> SvcSup
     SvcRec --> SvcOAI
-    API_Emb --> SvcEmb
-    API_Mov --> SvcOAI
     API_Seed --> SvcSeed
     SvcSeed --> SvcEmb
 
@@ -102,7 +97,6 @@ sequenceDiagram
     participant Browser as Browser<br/>(MovieFormClient)
     participant RecAPI as POST /api/recommendations
     participant Pipeline as movie-recommendations<br/>(lib/services)
-    participant EmbAPI as POST /api/embeddings
     participant Gemini as Google Gemini<br/>(via CF AI Gateway)
     participant CFWorker as Cloudflare Worker
     participant Supabase as Supabase<br/>(pgvector)
@@ -111,14 +105,12 @@ sequenceDiagram
 
     User->>Browser: Submit movie preferences<br/>(last participant)
     Browser->>RecAPI: POST participantsData + timeAvailable
-    RecAPI->>Pipeline: buildMovieRecommendations()
+    RecAPI->>Pipeline: streamMovieRecommendations()
 
-    Note over Pipeline: 1. Build embedding input<br/>format all preferences into text blob
+    Note over Pipeline: 1. Build embedding & normalise<br/>createServerEmbedding(text blob)
 
-    Pipeline->>EmbAPI: POST text blob
-    EmbAPI->>Gemini: gemini-embedding-001<br/>768-dim vector
-    Gemini-->>EmbAPI: embedding vector
-    EmbAPI-->>Pipeline: L2-normalised vector
+    Pipeline->>Gemini: gemini-embedding-001<br/>768-dim vector
+    Gemini-->>Pipeline: embedding vector
 
     Note over Pipeline: 2. Vector similarity search
 
@@ -127,17 +119,17 @@ sequenceDiagram
     Supabase-->>CFWorker: top-10 similar MovieRecords
     CFWorker-->>Pipeline: matched movies (id, content, similarity)
 
-    Note over Pipeline: 3. LLM re-ranking
+    Note over Pipeline: 3. LLM streaming with zod schema
 
     Pipeline->>LLM: system prompt + movie list + user prefs<br/>temperature: 0.65
-    LLM-->>Pipeline: JSON { recommendedMovies: [...] }
+    LLM-->>Pipeline: Stream chunks via zod schema
 
-    Note over Pipeline: 4. Parse & fallback<br/>If JSON invalid → extract from vector results
+    Note over Pipeline: 4. streamObject conversion
 
-    Pipeline-->>RecAPI: MovieRecommendation
-    RecAPI-->>Browser: 200 { result, match }
+    Pipeline-->>RecAPI: Stream text response
+    RecAPI-->>Browser: 200 ReadableStream
 
-    Browser->>Browser: store in MovieContext<br/>router.replace(/recommendations)
+    Browser->>Browser: consume stream with useObject hook
 
     loop For each recommended movie
         Browser->>TMDB: searchMoviePoster(title)
@@ -162,19 +154,21 @@ The group also sets how much **time** is available for the session.
 
 ### 2. Embed
 
-All preferences are concatenated into a single text blob and sent to `POST /api/embeddings`. The server calls **Google Gemini** (`gemini-embedding-001`) via the Vercel AI SDK to produce a 768-dimensional vector. The returned vector is **L2-normalised** on the client before the next step.
+All preferences are concatenated into a single text blob within the **movie-recommendations** service. The server calls **Google Gemini** (`gemini-embedding-001`) via the Vercel AI SDK to produce a 768-dimensional vector, which is then **L2-normalised** on the server.
 
 ### 3. Retrieve -- vector similarity search
 
-The browser sends participant answers to `POST /api/recommendations`, and the server forwards the normalised vector to the **Supabase Cloudflare Worker** (`POST /api/match-movies`). That worker runs the Postgres RPC `match_movies_4`, using the pgvector `<=>` (cosine distance) operator against a pre-seeded corpus of movie embeddings and returning the **top 10 matches** above a 0.25 similarity threshold.
+The server forwards the normalised vector to the **Supabase Cloudflare Worker** (`POST /api/match-movies`). That worker runs the Postgres RPC `match_movies_4`, using the pgvector `<=>` (cosine distance) operator against a pre-seeded corpus of movie embeddings and returning the **top 10 matches** above a 0.25 similarity threshold.
 
 The movie corpus lives in `public/constants/movies.txt` and is chunked and embedded via the `/api/embeddings-seed` endpoint on first run.
 
-### 4. Rank -- language model re-ranking
+### 4. Rank -- language model re-ranking and streaming
 
-The matched movie content is split into individual entries and formatted as a "Movie List Context". This context, together with the original participant preferences, is sent to `POST /api/movies`, which calls **Google Gemini 2.5 Flash** (primary) to rank and filter the candidates. If Google is unavailable or its daily quota is exhausted (HTTP 429/403), the request automatically falls back to **MiniMax M2.5 via OpenRouter** (free tier). Quota errors trigger a 24-hour circuit breaker so subsequent requests skip Google until the quota resets.
+The matched movie content is split into individual entries and formatted as a "Movie List Context". This context, together with the original participant preferences, is sent to the LLM. We call **Google Gemini 2.5 Flash** (primary) via the Vercel AI SDK `streamObject` function to rank and filter the candidates. If Google is unavailable or its daily quota is exhausted (HTTP 429/403), the request automatically cascades through a series of **OpenRouter** fallbacks: **MiniMax M2.5**, **Llama 3.3 70B**, and finally **openrouter/free** (dynamic auto-router).
 
-A structured system prompt instructs the model to return between 1 and 10 movies as JSON, filtered by time constraints, era preference, mood, and genre fit.
+Quota errors trigger individualized circuit breakers: Google drops subsequent requests for **24 hours**, whereas transient OpenRouter drops bypass that specific model for just **5 minutes** before retrying.
+
+A structured system prompt paired with a **Zod** schema (`movieRecommendationSchema`) instructs the model to return a stream of between 1 and 10 movies as a structured object, filtered by time constraints, era preference, mood, and genre fit. The server pipes this stream continuously back to the Next.js client, allowing the UI to display recommendations progressively as they are generated.
 
 ### 5. Fallback and display
 
@@ -186,7 +180,7 @@ If the LLM response cannot be parsed as valid JSON, a **heuristic fallback** (`l
 | ----------- | ------------------------------------------------------------------------------------------ |
 | Framework   | Next.js 16 (App Router, Turbopack)                                                         |
 | UI          | React 19, Tailwind CSS, DaisyUI                                                            |
-| AI          | Vercel AI SDK, Google Gemini (primary LLM + embeddings), OpenRouter MiniMax (fallback LLM) |
+| AI          | Vercel AI SDK, Google Gemini (primary), OpenRouter (Minimax, Llama, Auto-Router fallbacks) |
 | Gateway     | Cloudflare AI Gateway (Google language model path)                                         |
 | Database    | Supabase (Postgres + pgvector)                                                             |
 | Edge worker | Cloudflare Workers                                                                         |
@@ -305,8 +299,7 @@ To force a full reseed (truncates existing data first), call `GET /api/embedding
 ### Testing
 
 ```bash
-pnpm test              # watch mode
-pnpm test:ci           # single run (CI)
+pnpm test              # run the Jest suite
 pnpm test:coverage     # coverage report -- 95% threshold enforced
 ```
 
@@ -346,9 +339,7 @@ plotline-ai/
 │   │   ├── movieForm/page.tsx      # Per-person preference form
 │   │   └── recommendations/page.tsx# Results carousel
 │   ├── api/
-│   │   ├── movies/route.ts         # LLM chat completion
-│   │   ├── recommendations/route.ts# Server-side recommendation pipeline
-│   │   ├── embeddings/route.ts     # Embedding generation
+│   │   ├── recommendations/route.ts# Server-side recommendation pipeline (streaming)
 │   │   └── embeddings-seed/route.ts# Corpus seeding
 │   ├── layout.tsx
 │   └── globals.css

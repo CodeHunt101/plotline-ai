@@ -1,17 +1,12 @@
 import "server-only";
 
-import { ParticipantsMovieData, MovieRecommendation } from "@/types/api";
+import { ParticipantsMovieData } from "@/types/api";
 import { createServerEmbedding } from "@/lib/services/embeddings-server";
 import {
   buildRecommendationMessages,
-  generateMovieRecommendationsFromMessages,
-} from "@/lib/services/openai";
+  streamMovieRecommendationsFromMessages,
+} from "@/lib/services/ai-service";
 import { matchMoviesByEmbedding } from "@/lib/services/supabase";
-import {
-  emptyMovieRecommendations,
-  fallbackMovieRecommendations,
-  parseMovieRecommendationsResponse,
-} from "@/lib/utils/recommendations";
 
 function buildEmbeddingInput(movieData: ParticipantsMovieData): string {
   return (
@@ -30,20 +25,15 @@ function buildEmbeddingInput(movieData: ParticipantsMovieData): string {
   );
 }
 
-/** Full server-side recommendation pipeline: embed -> retrieve -> rank -> fallback. */
-export async function buildMovieRecommendations(
-  movieData: ParticipantsMovieData
-): Promise<MovieRecommendation> {
+/** Full server-side recommendation pipeline: embed -> retrieve -> rank -> stream. */
+export async function streamMovieRecommendations(movieData: ParticipantsMovieData) {
   try {
     const embeddingInput = buildEmbeddingInput(movieData);
     const embedding = await createServerEmbedding(embeddingInput);
     const match = await matchMoviesByEmbedding(embedding);
 
     if (match.length === 0) {
-      return {
-        match: [],
-        result: emptyMovieRecommendations(),
-      };
+      return null;
     }
 
     const separatedMovies = match.flatMap((movie) => {
@@ -59,27 +49,7 @@ export async function buildMovieRecommendations(
       .join("\n\n");
 
     const messages = buildRecommendationMessages(movieList, embeddingInput);
-    const result = await generateMovieRecommendationsFromMessages(messages);
-    const fallbackResult = fallbackMovieRecommendations(separatedMovies);
-    let parsedResult = emptyMovieRecommendations();
-
-    try {
-      parsedResult = parseMovieRecommendationsResponse(result);
-    } catch (error) {
-      if (fallbackResult.recommendedMovies.length > 0) {
-        return {
-          match: separatedMovies,
-          result: fallbackResult,
-        };
-      }
-
-      throw error;
-    }
-
-    return {
-      match: separatedMovies,
-      result: parsedResult.recommendedMovies.length > 0 ? parsedResult : fallbackResult,
-    };
+    return await streamMovieRecommendationsFromMessages(messages);
   } catch (error) {
     if (error instanceof Error) {
       throw error;
