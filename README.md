@@ -86,6 +86,17 @@ graph TD
 The recommendation pipeline has three stages: **embed**, **retrieve**, and **rank**.
 
 ```mermaid
+flowchart LR
+    A["🎬 Participants'\npreferences"] --> B["1. Embed\nGemini → 768-dim vector"]
+    B --> C["2. Retrieve\npgvector similarity search\ntop-10 matches"]
+    C --> D["3. Rank\nLLM re-ranking\n+ JSON response"]
+    D --> E["🍿 Recommended\nmovies + posters"]
+```
+
+<details>
+<summary>Detailed sequence diagram</summary>
+
+```mermaid
 sequenceDiagram
     actor User
     participant Browser as Browser<br/>(MovieFormClient)
@@ -135,6 +146,8 @@ sequenceDiagram
 
     Browser-->>User: Recommendations carousel<br/>with posters
 ```
+
+</details>
 
 ### 1. Collect preferences
 
