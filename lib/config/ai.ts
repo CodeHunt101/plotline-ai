@@ -6,6 +6,14 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { LanguageModelMiddleware } from "ai";
 
 type WrappableLanguageModel = Parameters<typeof wrapLanguageModel>[0]["model"];
+type StreamResult = Awaited<ReturnType<WrappableLanguageModel["doStream"]>>;
+type ModelQuotaConfig = {
+  id: string;
+  quotaResetMs: number;
+};
+type FallbackConfig = ModelQuotaConfig & {
+  getModel: () => WrappableLanguageModel;
+};
 
 const GOOGLE_EMBEDDING_DIMENSIONS = 768;
 const DEFAULT_GOOGLE_LANGUAGE_MODEL = "gemini-2.5-flash";
@@ -15,9 +23,22 @@ const DEFAULT_OPENROUTER_LANGUAGE_MODEL = "minimax/minimax-m2.5:free";
 const GOOGLE_QUOTA_RESET_MS = 24 * 60 * 60 * 1000;
 const OPENROUTER_QUOTA_RESET_MS = 5 * 60 * 1000;
 
+// Best-effort, in-memory circuit breaker state. This is per-process/per-isolate only
+// and is not intended to provide durable or cross-instance coordination.
 const quotaExhaustedAt = new Map<string, { timestamp: number; delayMs: number }>();
 
-function getQuotaStatus(modelId: string) {
+function formatDurationMs(durationMs: number): string {
+  const totalSeconds = Math.ceil(Math.max(0, durationMs) / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(
+    seconds
+  ).padStart(2, "0")}s`;
+}
+
+function getQuotaStatus(modelId: string): { exhausted: boolean; resetsIn: string | null } {
   const exhausted = quotaExhaustedAt.get(modelId);
   if (!exhausted) {
     return { exhausted: false, resetsIn: null };
@@ -29,11 +50,7 @@ function getQuotaStatus(modelId: string) {
     quotaExhaustedAt.delete(modelId);
     return { exhausted: false, resetsIn: null };
   }
-  const resetsIn = new Date(remaining);
-  const hh = String(resetsIn.getUTCHours()).padStart(2, "0");
-  const mm = String(resetsIn.getUTCMinutes()).padStart(2, "0");
-  const ss = String(resetsIn.getUTCSeconds()).padStart(2, "0");
-  return { exhausted: true, resetsIn: `${hh}h ${mm}m ${ss}s` };
+  return { exhausted: true, resetsIn: formatDurationMs(remaining) };
 }
 
 function isQuotaExhausted(modelId: string): boolean {
@@ -60,6 +77,54 @@ function markQuotaExhausted(modelId: string, statusCode: number, delayMs: number
 /** Reset the in-memory quota circuit breaker (for testing). */
 export function resetQuotaCache(): void {
   quotaExhaustedAt.clear();
+}
+
+function createAllModelsExhaustedError(models: ModelQuotaConfig[]): Error {
+  const exhaustionSummary = models
+    .map(({ id }) => {
+      const { exhausted, resetsIn } = getQuotaStatus(id);
+      return exhausted && resetsIn
+        ? `${id} (resets in ${resetsIn})`
+        : `${id} (availability unknown)`;
+    })
+    .join(", ");
+
+  return new Error(`All language models are currently quota exhausted: ${exhaustionSummary}`);
+}
+
+function wrapStreamResultWithQuotaDetection(
+  result: StreamResult,
+  model: ModelQuotaConfig
+): StreamResult {
+  const reader = result.stream.getReader();
+
+  result.stream = new ReadableStream({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          controller.close();
+          return;
+        }
+
+        controller.enqueue(value);
+      } catch (error) {
+        if (isQuotaError(error)) {
+          markQuotaExhausted(model.id, (error as APICallError).statusCode!, model.quotaResetMs);
+        } else {
+          console.warn(`Streaming language model (${model.id}) failed during consumption:`, error);
+        }
+
+        controller.error(error);
+      }
+    },
+    async cancel(reason) {
+      await reader.cancel(reason);
+    },
+  });
+
+  return result;
 }
 
 function getGateway() {
@@ -93,29 +158,27 @@ function getOpenRouterLanguageModel(modelIdOverride?: string): WrappableLanguage
 }
 
 function createFallbackMiddleware(
-  primaryId: string,
-  fallbacks: Array<{ id: string; getModel: () => WrappableLanguageModel }>
+  primary: ModelQuotaConfig,
+  fallbacks: FallbackConfig[]
 ): LanguageModelMiddleware {
   return {
     specificationVersion: "v3",
     wrapGenerate: async ({ doGenerate, params }) => {
-      let lastError: unknown;
+      let lastError: unknown | undefined;
 
-      if (!isQuotaExhausted(primaryId)) {
+      if (!isQuotaExhausted(primary.id)) {
         try {
-          const result = await doGenerate();
-          console.log(`[ai] Successfully generated with model: ${primaryId}`);
-          return result;
+          return await doGenerate();
         } catch (error) {
           if (isQuotaError(error)) {
             markQuotaExhausted(
-              primaryId,
+              primary.id,
               (error as APICallError).statusCode!,
-              GOOGLE_QUOTA_RESET_MS
+              primary.quotaResetMs
             );
           } else {
             console.warn(
-              `Primary language model (${primaryId}) failed, trying next fallback:`,
+              `Primary language model (${primary.id}) failed, trying next fallback:`,
               error
             );
           }
@@ -127,15 +190,13 @@ function createFallbackMiddleware(
         if (isQuotaExhausted(fallback.id)) continue;
 
         try {
-          const result = await fallback.getModel().doGenerate(params);
-          console.log(`[ai] Successfully generated with model: ${fallback.id}`);
-          return result;
+          return await fallback.getModel().doGenerate(params);
         } catch (error) {
           if (isQuotaError(error)) {
             markQuotaExhausted(
               fallback.id,
               (error as APICallError).statusCode!,
-              OPENROUTER_QUOTA_RESET_MS
+              fallback.quotaResetMs
             );
           } else {
             console.warn(
@@ -147,26 +208,28 @@ function createFallbackMiddleware(
         }
       }
 
-      throw lastError || new Error("All language models exhausted");
+      if (lastError !== undefined) {
+        throw lastError;
+      }
+
+      throw createAllModelsExhaustedError([primary, ...fallbacks]);
     },
     wrapStream: async ({ doStream, params }) => {
-      let lastError: unknown;
+      let lastError: unknown | undefined;
 
-      if (!isQuotaExhausted(primaryId)) {
+      if (!isQuotaExhausted(primary.id)) {
         try {
-          const result = await doStream();
-          console.log(`[ai] Successfully streaming with model: ${primaryId}`);
-          return result;
+          return wrapStreamResultWithQuotaDetection(await doStream(), primary);
         } catch (error) {
           if (isQuotaError(error)) {
             markQuotaExhausted(
-              primaryId,
+              primary.id,
               (error as APICallError).statusCode!,
-              GOOGLE_QUOTA_RESET_MS
+              primary.quotaResetMs
             );
           } else {
             console.warn(
-              `Primary language model (${primaryId}) failed, trying next fallback:`,
+              `Primary language model (${primary.id}) failed, trying next fallback:`,
               error
             );
           }
@@ -178,15 +241,16 @@ function createFallbackMiddleware(
         if (isQuotaExhausted(fallback.id)) continue;
 
         try {
-          const result = await fallback.getModel().doStream(params);
-          console.log(`[ai] Successfully streaming with model: ${fallback.id}`);
-          return result;
+          return wrapStreamResultWithQuotaDetection(
+            await fallback.getModel().doStream(params),
+            fallback
+          );
         } catch (error) {
           if (isQuotaError(error)) {
             markQuotaExhausted(
               fallback.id,
               (error as APICallError).statusCode!,
-              OPENROUTER_QUOTA_RESET_MS
+              fallback.quotaResetMs
             );
           } else {
             console.warn(
@@ -198,7 +262,11 @@ function createFallbackMiddleware(
         }
       }
 
-      throw lastError || new Error("All language models exhausted");
+      if (lastError !== undefined) {
+        throw lastError;
+      }
+
+      throw createAllModelsExhaustedError([primary, ...fallbacks]);
     },
   };
 }
@@ -208,23 +276,32 @@ export function getLanguageModel(): WrappableLanguageModel {
   const primary = getGoogleLanguageModel();
   return wrapLanguageModel({
     model: primary,
-    middleware: createFallbackMiddleware("google-primary", [
+    middleware: createFallbackMiddleware(
       {
-        id: "openrouter-minimax",
-        getModel: () =>
-          getOpenRouterLanguageModel(
-            process.env.OPENROUTER_LANGUAGE_MODEL ?? DEFAULT_OPENROUTER_LANGUAGE_MODEL
-          ),
+        id: "google-primary",
+        quotaResetMs: GOOGLE_QUOTA_RESET_MS,
       },
-      {
-        id: "openrouter-llama",
-        getModel: () => getOpenRouterLanguageModel("meta-llama/llama-3.3-70b-instruct:free"),
-      },
-      {
-        id: "openrouter-free-auto",
-        getModel: () => getOpenRouterLanguageModel("openrouter/free"),
-      },
-    ]),
+      [
+        {
+          id: "openrouter-minimax",
+          quotaResetMs: OPENROUTER_QUOTA_RESET_MS,
+          getModel: () =>
+            getOpenRouterLanguageModel(
+              process.env.OPENROUTER_LANGUAGE_MODEL ?? DEFAULT_OPENROUTER_LANGUAGE_MODEL
+            ),
+        },
+        {
+          id: "openrouter-llama",
+          quotaResetMs: OPENROUTER_QUOTA_RESET_MS,
+          getModel: () => getOpenRouterLanguageModel("meta-llama/llama-3.3-70b-instruct:free"),
+        },
+        {
+          id: "openrouter-free-auto",
+          quotaResetMs: OPENROUTER_QUOTA_RESET_MS,
+          getModel: () => getOpenRouterLanguageModel("openrouter/free"),
+        },
+      ]
+    ),
   });
 }
 

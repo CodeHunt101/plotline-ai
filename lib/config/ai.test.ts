@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { ReadableStream } from "node:stream/web";
+
 import {
   getLanguageModel,
   getEmbeddingModel,
@@ -7,6 +9,37 @@ import {
   resetQuotaCache,
 } from "./ai";
 
+globalThis.ReadableStream = ReadableStream as typeof globalThis.ReadableStream;
+
+function createStreamResult(chunk: string) {
+  return {
+    stream: new ReadableStream({
+      start(controller) {
+        controller.enqueue(chunk);
+        controller.close();
+      },
+    }),
+  };
+}
+
+function createFailingStreamResult(error: unknown, initialChunk = "partial-chunk") {
+  let chunkSent = false;
+
+  return {
+    stream: new ReadableStream({
+      pull(controller) {
+        if (!chunkSent) {
+          chunkSent = true;
+          controller.enqueue(initialChunk);
+          return;
+        }
+
+        controller.error(error);
+      },
+    }),
+  };
+}
+
 // Primary
 const mockGenerateResult = {
   content: [{ type: "text" as const, text: "hello" }],
@@ -14,7 +47,7 @@ const mockGenerateResult = {
   usage: { inputTokens: 10, outputTokens: 5 },
   warnings: [],
 };
-const mockStreamResult = { stream: "mock-stream" };
+let mockStreamResult = createStreamResult("mock-stream");
 
 // Minimax
 const mockMinimaxGenerateResult = {
@@ -23,7 +56,7 @@ const mockMinimaxGenerateResult = {
   usage: { inputTokens: 8, outputTokens: 4 },
   warnings: [],
 };
-const mockMinimaxStreamResult = { stream: "mock-minimax-stream" };
+let mockMinimaxStreamResult = createStreamResult("mock-minimax-stream");
 
 // Llama
 const mockLlamaGenerateResult = {
@@ -32,7 +65,7 @@ const mockLlamaGenerateResult = {
   usage: { inputTokens: 8, outputTokens: 4 },
   warnings: [],
 };
-const mockLlamaStreamResult = { stream: "mock-llama-stream" };
+let mockLlamaStreamResult = createStreamResult("mock-llama-stream");
 
 // Auto-Router (openrouter/free)
 const mockAutoRouterGenerateResult = {
@@ -41,10 +74,10 @@ const mockAutoRouterGenerateResult = {
   usage: { inputTokens: 8, outputTokens: 4 },
   warnings: [],
 };
-const mockAutoRouterStreamResult = { stream: "mock-auto-router-stream" };
+let mockAutoRouterStreamResult = createStreamResult("mock-auto-router-stream");
 
 const mockGoogleDoGenerate = jest.fn().mockResolvedValue(mockGenerateResult);
-const mockGoogleDoStream = jest.fn().mockResolvedValue(mockStreamResult);
+const mockGoogleDoStream = jest.fn(async () => mockStreamResult);
 
 const mockGoogleModel = {
   specificationVersion: "v3" as const,
@@ -56,11 +89,11 @@ const mockGoogleModel = {
 };
 
 const mockMinimaxDoGenerate = jest.fn().mockResolvedValue(mockMinimaxGenerateResult);
-const mockMinimaxDoStream = jest.fn().mockResolvedValue(mockMinimaxStreamResult);
+const mockMinimaxDoStream = jest.fn(async () => mockMinimaxStreamResult);
 const mockLlamaDoGenerate = jest.fn().mockResolvedValue(mockLlamaGenerateResult);
-const mockLlamaDoStream = jest.fn().mockResolvedValue(mockLlamaStreamResult);
+const mockLlamaDoStream = jest.fn(async () => mockLlamaStreamResult);
 const mockAutoRouterDoGenerate = jest.fn().mockResolvedValue(mockAutoRouterGenerateResult);
-const mockAutoRouterDoStream = jest.fn().mockResolvedValue(mockAutoRouterStreamResult);
+const mockAutoRouterDoStream = jest.fn(async () => mockAutoRouterStreamResult);
 
 const mockAiGatewayFn = jest.fn((model: any) => model);
 const mockCreateAiGateway = jest.fn(() => mockAiGatewayFn);
@@ -171,14 +204,18 @@ describe("getLanguageModel", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetQuotaCache();
+    mockStreamResult = createStreamResult("mock-stream");
+    mockMinimaxStreamResult = createStreamResult("mock-minimax-stream");
+    mockLlamaStreamResult = createStreamResult("mock-llama-stream");
+    mockAutoRouterStreamResult = createStreamResult("mock-auto-router-stream");
     mockGoogleDoGenerate.mockResolvedValue(mockGenerateResult);
-    mockGoogleDoStream.mockResolvedValue(mockStreamResult);
+    mockGoogleDoStream.mockImplementation(async () => mockStreamResult);
     mockMinimaxDoGenerate.mockResolvedValue(mockMinimaxGenerateResult);
-    mockMinimaxDoStream.mockResolvedValue(mockMinimaxStreamResult);
+    mockMinimaxDoStream.mockImplementation(async () => mockMinimaxStreamResult);
     mockLlamaDoGenerate.mockResolvedValue(mockLlamaGenerateResult);
-    mockLlamaDoStream.mockResolvedValue(mockLlamaStreamResult);
+    mockLlamaDoStream.mockImplementation(async () => mockLlamaStreamResult);
     mockAutoRouterDoGenerate.mockResolvedValue(mockAutoRouterGenerateResult);
-    mockAutoRouterDoStream.mockResolvedValue(mockAutoRouterStreamResult);
+    mockAutoRouterDoStream.mockImplementation(async () => mockAutoRouterStreamResult);
 
     process.env = {
       ...originalEnv,
@@ -328,6 +365,27 @@ describe("getLanguageModel", () => {
     Date.now = realDateNow;
   });
 
+  it("reports a fresh 24h reset window for Google quota exhaustion", async () => {
+    mockGoogleDoGenerate.mockRejectedValueOnce(new MockAPICallError("Google unavailable", 429));
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const model = getLanguageModel();
+    await model.doGenerate({} as any);
+
+    consoleWarn.mockClear();
+
+    const model2 = getLanguageModel();
+    await model2.doGenerate({} as any);
+
+    expect(
+      consoleWarn.mock.calls.some(
+        ([message]) =>
+          typeof message === "string" &&
+          message.includes("[quota] google-primary quota exhausted. Resets in 24h 00m 00s.")
+      )
+    ).toBe(true);
+  });
+
   it("retries models after 24h quota reset", async () => {
     mockGoogleDoGenerate.mockRejectedValueOnce(new MockAPICallError("Rate limit exceeded", 429));
     mockMinimaxDoGenerate.mockRejectedValueOnce(new MockAPICallError("Rate limit min", 429));
@@ -366,6 +424,34 @@ describe("getLanguageModel", () => {
     const result = await model2.doGenerate({} as any);
     expect(mockGoogleDoGenerate).toHaveBeenCalledTimes(1);
     expect(result).toBe(mockGenerateResult);
+  });
+
+  it("throws an exhaustion summary when every model is already circuit-open", async () => {
+    mockGoogleDoGenerate.mockRejectedValueOnce(new MockAPICallError("Google unavailable", 429));
+    mockMinimaxDoGenerate.mockRejectedValueOnce(new MockAPICallError("Minimax unavailable", 429));
+    mockLlamaDoGenerate.mockRejectedValueOnce(new MockAPICallError("Llama unavailable", 429));
+    mockAutoRouterDoGenerate.mockRejectedValueOnce(
+      new MockAPICallError("AutoRouter unavailable", 429)
+    );
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const model = getLanguageModel();
+    await expect(model.doGenerate({} as any)).rejects.toThrow("AutoRouter unavailable");
+
+    mockGoogleDoGenerate.mockClear();
+    mockMinimaxDoGenerate.mockClear();
+    mockLlamaDoGenerate.mockClear();
+    mockAutoRouterDoGenerate.mockClear();
+
+    const model2 = getLanguageModel();
+
+    await expect(model2.doGenerate({} as any)).rejects.toThrow(
+      "All language models are currently quota exhausted: google-primary (resets in 24h 00m 00s), openrouter-minimax (resets in 00h 05m 00s), openrouter-llama (resets in 00h 05m 00s), openrouter-free-auto (resets in 00h 05m 00s)"
+    );
+    expect(mockGoogleDoGenerate).not.toHaveBeenCalled();
+    expect(mockMinimaxDoGenerate).not.toHaveBeenCalled();
+    expect(mockLlamaDoGenerate).not.toHaveBeenCalled();
+    expect(mockAutoRouterDoGenerate).not.toHaveBeenCalled();
   });
 
   it("throws when CLOUDFLARE_ACCOUNT_ID is missing", () => {
@@ -440,14 +526,18 @@ describe("wrapStream – quota and exhaustion paths", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetQuotaCache();
+    mockStreamResult = createStreamResult("mock-stream");
+    mockMinimaxStreamResult = createStreamResult("mock-minimax-stream");
+    mockLlamaStreamResult = createStreamResult("mock-llama-stream");
+    mockAutoRouterStreamResult = createStreamResult("mock-auto-router-stream");
     mockGoogleDoGenerate.mockResolvedValue(mockGenerateResult);
-    mockGoogleDoStream.mockResolvedValue(mockStreamResult);
+    mockGoogleDoStream.mockImplementation(async () => mockStreamResult);
     mockMinimaxDoGenerate.mockResolvedValue(mockMinimaxGenerateResult);
-    mockMinimaxDoStream.mockResolvedValue(mockMinimaxStreamResult);
+    mockMinimaxDoStream.mockImplementation(async () => mockMinimaxStreamResult);
     mockLlamaDoGenerate.mockResolvedValue(mockLlamaGenerateResult);
-    mockLlamaDoStream.mockResolvedValue(mockLlamaStreamResult);
+    mockLlamaDoStream.mockImplementation(async () => mockLlamaStreamResult);
     mockAutoRouterDoGenerate.mockResolvedValue(mockAutoRouterGenerateResult);
-    mockAutoRouterDoStream.mockResolvedValue(mockAutoRouterStreamResult);
+    mockAutoRouterDoStream.mockImplementation(async () => mockAutoRouterStreamResult);
 
     process.env = {
       ...originalEnv,
@@ -519,5 +609,36 @@ describe("wrapStream – quota and exhaustion paths", () => {
 
     expect(mockGoogleDoStream).not.toHaveBeenCalled();
     expect(mockMinimaxDoStream).toHaveBeenCalled();
+  });
+
+  it("marks stream quota exhaustion during consumption for later requests", async () => {
+    const streamError = new MockAPICallError("Google mid-stream quota", 429);
+    mockGoogleDoStream.mockImplementationOnce(async () => createFailingStreamResult(streamError));
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    const model = getLanguageModel();
+    const result = await model.doStream({} as any);
+    const reader = result.stream.getReader();
+
+    await expect(reader.read()).resolves.toEqual({ done: false, value: "partial-chunk" });
+    await expect(reader.read()).rejects.toThrow("Google mid-stream quota");
+
+    mockGoogleDoStream.mockClear();
+    mockMinimaxDoStream.mockClear();
+    consoleWarn.mockClear();
+
+    const model2 = getLanguageModel();
+    const fallbackResult = await model2.doStream({} as any);
+
+    expect(mockGoogleDoStream).not.toHaveBeenCalled();
+    expect(mockMinimaxDoStream).toHaveBeenCalledTimes(1);
+    expect(fallbackResult).toBe(mockMinimaxStreamResult);
+    expect(
+      consoleWarn.mock.calls.some(
+        ([message]) =>
+          typeof message === "string" &&
+          message.includes("[quota] google-primary quota exhausted. Resets in 24h 00m 00s.")
+      )
+    ).toBe(true);
   });
 });

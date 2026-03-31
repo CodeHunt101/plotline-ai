@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { SUPABASE_WORKER_URL } from "@/config/supabase";
+import { getEmbeddingProviderOptions } from "@/config/ai";
 import { seedMovieEmbeddings, splitMovieContentIntoChunks } from "./seed";
 
 jest.mock("fs", () => ({
@@ -260,7 +261,6 @@ describe("seedMovieEmbeddings", () => {
 
   it("calls embed without providerOptions when getEmbeddingProviderOptions returns null", async () => {
     // Override the mock to return null for this test only
-    const { getEmbeddingProviderOptions } = require("@/config/ai");
     (getEmbeddingProviderOptions as jest.Mock).mockReturnValueOnce(null);
 
     (global.fetch as jest.Mock).mockResolvedValueOnce({
