@@ -9,6 +9,7 @@ const createJestConfig = nextJest({
 const customJestConfig = {
   setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
   testEnvironment: "jsdom",
+  testPathIgnorePatterns: ["/node_modules/", "/.next/", "<rootDir>/tests/e2e/"],
   moduleNameMapper: {
     "^@/services/(.*)$": "<rootDir>/lib/services/$1",
     "^@/config/(.*)$": "<rootDir>/lib/config/$1",
@@ -30,6 +31,9 @@ const customJestConfig = {
     "!tailwind.config.ts",
     "!app/fonts.ts",
     "!app/layout.tsx",
+    "!playwright.config.ts",
+    "!tests/e2e/**",
+    "!tests/support/**",
   ],
   coverageThreshold: {
     global: {
