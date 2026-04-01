@@ -43,11 +43,3 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --config wrangler.supabase.toml
-          secrets: |
-            SUPABASE_URL
-            SUPABASE_API_KEY
-            WORKER_SHARED_SECRET
-        env:
-          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-          SUPABASE_API_KEY: ${{ secrets.SUPABASE_API_KEY }}
-          WORKER_SHARED_SECRET: ${{ secrets.WORKER_SHARED_SECRET }}
