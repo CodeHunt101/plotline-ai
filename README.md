@@ -3,6 +3,8 @@
 PlotlineAI is a group movie recommendation app. Each participant shares their tastes -- favourite film, preferred era, current mood, and a favourite film personality -- and the system uses **embedding-based vector search** combined with a **language model** to surface movies the whole group will enjoy.
 
 [![Live Demo](https://img.shields.io/badge/demo-plotline--ai-blue)](https://plotline-ai.vercel.app/)
+[![CI](https://github.com/CodeHunt101/plotline-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/CodeHunt101/plotline-ai/actions/workflows/ci.yml)
+![Coverage](./coverage-badge.svg)
 
 ## Table of Contents
 
@@ -12,6 +14,7 @@ PlotlineAI is a group movie recommendation app. Each participant shares their ta
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Cloudflare Workers](#cloudflare-workers)
+- [CI/CD](#cicd)
 - [AI Limitations](#ai-limitations)
 
 ---
@@ -72,7 +75,7 @@ graph TD
     SvcTMDB --> TMDB
 ```
 
-> Full diagrams — React component tree and AI fallback circuit breaker → [`docs/diagrams.md`](./docs/diagrams.md)
+> Full diagrams — React component tree, AI fallback circuit breaker, and CI/CD pipeline → [`docs/diagrams.md`](./docs/diagrams.md)
 
 ---
 
@@ -328,6 +331,31 @@ To enable it:
 3. Paste your Supabase **transaction pooler** connection string from **Connect -> Transaction mode** in the Supabase dashboard.
 
 The workflow also supports manual runs from the **Actions** tab via `workflow_dispatch`.
+
+## CI/CD
+
+This project uses GitHub Actions for continuous integration and automated Cloudflare Worker deploys.
+
+### Workflows
+
+| Workflow                 | Trigger                           | What it does                                                                                                                                  |
+| ------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`                 | Push / PR → `main`                | ESLint, TypeScript type-check, Jest (95% coverage threshold). Uploads a coverage report artifact and auto-commits a coverage badge to `main`. |
+| `deploy.yml`             | Push → `main` (worker files only) | Deploys the Supabase Cloudflare Worker via Wrangler.                                                                                          |
+| `supabase-keepalive.yml` | Daily schedule                    | Runs a keepalive query against Supabase so the free-tier project stays active.                                                                |
+
+### Required GitHub secrets
+
+Open **Settings → Secrets and variables → Actions** in your GitHub repo and add the following secrets:
+
+| Secret                  | Used by                  | Where to find it                                    |
+| ----------------------- | ------------------------ | --------------------------------------------------- |
+| `SUPABASE_DB_URL`       | `supabase-keepalive.yml` | Supabase dashboard → Connect → Transaction mode     |
+| `CLOUDFLARE_API_TOKEN`  | `deploy.yml`             | Cloudflare dashboard → My Profile → API Tokens      |
+| `CLOUDFLARE_ACCOUNT_ID` | `deploy.yml`             | Cloudflare dashboard → right-hand sidebar           |
+| `SUPABASE_URL`          | `deploy.yml`             | Supabase dashboard → Project Settings → Data API    |
+| `SUPABASE_API_KEY`      | `deploy.yml`             | Supabase dashboard → Project Settings → Data API    |
+| `WORKER_SHARED_SECRET`  | `deploy.yml`             | Must match `SUPABASE_WORKER_SECRET` in `.env.local` |
 
 ## Project Structure
 

@@ -210,3 +210,38 @@ flowchart TD
     ValidJSON -- No --> ExtractHeuristics["fallbackMovieRecommendations<br/>Extract titles from vector text"]
     ExtractHeuristics --> ReturnRec
 ```
+
+---
+
+## 5. CI/CD Pipeline
+
+Full lifecycle from a code change to production, via GitHub Actions and Vercel.
+
+```mermaid
+flowchart TD
+    Dev(["👨‍💻 Developer\npushes code"])
+
+    Dev --> PR["Open Pull Request\n→ main"]
+    Dev --> DirectPush["Direct push\n→ main"]
+
+    PR --> CI_PR["ci.yml\nLint · Type-check · Tests"]
+    CI_PR --> CIResult{"All checks\npassed?"}
+
+    CIResult -- "❌ Fail" --> Block["PR blocked\nfix and re-push"]
+    Block --> PR
+
+    CIResult -- "✅ Pass" --> VercelPreview["Vercel\nPreview Deployment\nunique URL per PR"]
+    VercelPreview --> Review["Code review\n+ preview testing"]
+    Review --> Merge["Merge PR → main"]
+
+    DirectPush --> MainPush["Push lands on main"]
+    Merge --> MainPush
+
+    MainPush --> CI_Main["ci.yml\nLint · Type-check · Tests\n+ update coverage badge"]
+    MainPush --> VercelProd["Vercel\nProduction Deployment\nplotline-ai.vercel.app"]
+
+    CI_Main --> WorkerChanged{"Worker files\nchanged?"}
+    WorkerChanged -- No --> Done(["✅ Done"])
+    WorkerChanged -- Yes --> Deploy["deploy.yml\nWrangler deploy\nCloudflare Worker"]
+    Deploy --> Done
+```
