@@ -4,7 +4,6 @@ PlotlineAI is a group movie recommendation app. Each participant shares their ta
 
 [![Live Demo](https://img.shields.io/badge/demo-plotline--ai-blue)](https://plotline-ai.vercel.app/)
 [![CI](https://github.com/CodeHunt101/plotline-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/CodeHunt101/plotline-ai/actions/workflows/ci.yml)
-![Coverage](./coverage-badge.svg)
 
 ## Table of Contents
 
@@ -350,19 +349,19 @@ Open **Settings → Secrets and variables → Actions** in your GitHub repo and 
 
 **Repository secrets** (sensitive credentials):
 
-| Secret                 | Used by                  | Where to find it                                    |
-| ---------------------- | ------------------------ | --------------------------------------------------- |
-| `SUPABASE_DB_URL`      | `supabase-keepalive.yml` | Supabase dashboard → Connect → Transaction mode     |
-| `CLOUDFLARE_API_TOKEN` | `deploy.yml`             | Cloudflare dashboard → My Profile → API Tokens      |
-| `SUPABASE_API_KEY`     | `deploy.yml`             | Supabase dashboard → Project Settings → Data API    |
-| `WORKER_SHARED_SECRET` | `deploy.yml`             | Must match `SUPABASE_WORKER_SECRET` in `.env.local` |
+| Secret                 | Used by                  | Where to find it                                |
+| ---------------------- | ------------------------ | ----------------------------------------------- |
+| `SUPABASE_DB_URL`      | `supabase-keepalive.yml` | Supabase dashboard → Connect → Transaction mode |
+| `CLOUDFLARE_API_TOKEN` | `deploy.yml`             | Cloudflare dashboard → My Profile → API Tokens  |
 
 **Repository variables** (non-sensitive config):
 
-| Variable                | Used by      | Where to find it                                 |
-| ----------------------- | ------------ | ------------------------------------------------ |
-| `CLOUDFLARE_ACCOUNT_ID` | `deploy.yml` | Cloudflare dashboard → right-hand sidebar        |
-| `SUPABASE_URL`          | `deploy.yml` | Supabase dashboard → Project Settings → Data API |
+| Variable                | Used by      | Where to find it                          |
+| ----------------------- | ------------ | ----------------------------------------- |
+| `CLOUDFLARE_ACCOUNT_ID` | `deploy.yml` | Cloudflare dashboard → right-hand sidebar |
+
+> [!NOTE]
+> The Cloudflare Worker runtime secrets (`SUPABASE_URL`, `SUPABASE_API_KEY`, `WORKER_SHARED_SECRET`) are set directly in the **Cloudflare dashboard → Workers → supabase-worker → Settings → Variables and Secrets**. They are not managed through GitHub Actions.
 
 ## Project Structure
 
