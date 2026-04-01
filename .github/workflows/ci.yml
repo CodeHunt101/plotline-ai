@@ -78,9 +78,37 @@ jobs:
       # Only update the badge on pushes to main (not on PRs)
       - name: Generate coverage badge
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: tj-actions/coverage-badge-js@v2
-        with:
-          output: coverage-badge.svg
+        run: |
+          node -e "
+            const fs = require('fs');
+            const summary = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+            const pct = summary.total.lines.pct;
+            const color = pct >= 90 ? '#4c1' : pct >= 75 ? '#dfb317' : '#e05d44';
+            const label = 'coverage';
+            const value = pct + '%';
+            const svg = [
+              '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"106\" height=\"20\">',
+              '<linearGradient id=\"s\" x2=\"0\" y2=\"100%\">',
+              '<stop offset=\"0\" stop-color=\"#bbb\" stop-opacity=\".1\"/>',
+              '<stop offset=\"1\" stop-opacity=\".1\"/>',
+              '</linearGradient>',
+              '<clipPath id=\"r\"><rect width=\"106\" height=\"20\" rx=\"3\" fill=\"#fff\"/></clipPath>',
+              '<g clip-path=\"url(#r)\">',
+              '<rect width=\"62\" height=\"20\" fill=\"#555\"/>',
+              '<rect x=\"62\" width=\"44\" height=\"20\" fill=\"' + color + '\"/>',
+              '<rect width=\"106\" height=\"20\" fill=\"url(#s)\"/>',
+              '</g>',
+              '<g fill=\"#fff\" text-anchor=\"middle\" font-family=\"DejaVu Sans,Verdana,Geneva,sans-serif\" font-size=\"11\">',
+              '<text x=\"31\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\">' + label + '</text>',
+              '<text x=\"31\" y=\"14\">' + label + '</text>',
+              '<text x=\"83\" y=\"15\" fill=\"#010101\" fill-opacity=\".3\">' + value + '</text>',
+              '<text x=\"83\" y=\"14\">' + value + '</text>',
+              '</g>',
+              '</svg>'
+            ].join('');
+            fs.writeFileSync('coverage-badge.svg', svg);
+            console.log('Generated badge: ' + pct + '%');
+          "
 
       - name: Commit coverage badge
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
