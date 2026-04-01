@@ -346,16 +346,23 @@ This project uses GitHub Actions for continuous integration and automated Cloudf
 
 ### Required GitHub secrets
 
-Open **Settings → Secrets and variables → Actions** in your GitHub repo and add the following secrets:
+Open **Settings → Secrets and variables → Actions** in your GitHub repo and add:
 
-| Secret                  | Used by                  | Where to find it                                    |
-| ----------------------- | ------------------------ | --------------------------------------------------- |
-| `SUPABASE_DB_URL`       | `supabase-keepalive.yml` | Supabase dashboard → Connect → Transaction mode     |
-| `CLOUDFLARE_API_TOKEN`  | `deploy.yml`             | Cloudflare dashboard → My Profile → API Tokens      |
-| `CLOUDFLARE_ACCOUNT_ID` | `deploy.yml`             | Cloudflare dashboard → right-hand sidebar           |
-| `SUPABASE_URL`          | `deploy.yml`             | Supabase dashboard → Project Settings → Data API    |
-| `SUPABASE_API_KEY`      | `deploy.yml`             | Supabase dashboard → Project Settings → Data API    |
-| `WORKER_SHARED_SECRET`  | `deploy.yml`             | Must match `SUPABASE_WORKER_SECRET` in `.env.local` |
+**Repository secrets** (sensitive credentials):
+
+| Secret                 | Used by                  | Where to find it                                    |
+| ---------------------- | ------------------------ | --------------------------------------------------- |
+| `SUPABASE_DB_URL`      | `supabase-keepalive.yml` | Supabase dashboard → Connect → Transaction mode     |
+| `CLOUDFLARE_API_TOKEN` | `deploy.yml`             | Cloudflare dashboard → My Profile → API Tokens      |
+| `SUPABASE_API_KEY`     | `deploy.yml`             | Supabase dashboard → Project Settings → Data API    |
+| `WORKER_SHARED_SECRET` | `deploy.yml`             | Must match `SUPABASE_WORKER_SECRET` in `.env.local` |
+
+**Repository variables** (non-sensitive config):
+
+| Variable                | Used by      | Where to find it                                 |
+| ----------------------- | ------------ | ------------------------------------------------ |
+| `CLOUDFLARE_ACCOUNT_ID` | `deploy.yml` | Cloudflare dashboard → right-hand sidebar        |
+| `SUPABASE_URL`          | `deploy.yml` | Supabase dashboard → Project Settings → Data API |
 
 ## Project Structure
 
