@@ -189,12 +189,12 @@ export default function RecommendationsClient() {
 
         {hasRenderableCurrentMovie && (
           <>
-            <div className="text-3xl text-center">
+            <h2 className="text-3xl text-center">
               {currentMovieName} {currentMovieReleaseYear ? `(${currentMovieReleaseYear})` : ""}
               {isLoading && currentIndex === recommendedMovies.length - 1 && (
                 <span className="loading loading-spinner loading-sm ml-2"></span>
               )}
-            </div>
+            </h2>
             {isLoadingPoster ? (
               <div
                 data-testid="poster-loading"

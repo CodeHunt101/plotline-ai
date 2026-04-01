@@ -50,7 +50,14 @@ const ParticipantsSetup = () => {
       </div>
 
       <div className="mb-6">
+        <label
+          htmlFor="time-available"
+          className="label-text text-secondary text-start text-lg mb-2 block"
+        >
+          How much time do you have?
+        </label>
         <input
+          id="time-available"
           type="text"
           value={timeAvailable}
           onChange={(e) => setGroupTimeAvailable(e.target.value)}

@@ -302,8 +302,21 @@ To force a full reseed (truncates existing data first), call `GET /api/embedding
 
 ```bash
 pnpm test              # run the Jest suite
+pnpm test:integration  # run the colocated integration tests only
 pnpm test:coverage     # coverage report -- 95% threshold enforced
+pnpm test:e2e          # run the Playwright browser suite
 ```
+
+The first-pass Playwright coverage is deterministic by design: it stubs `/api/recommendations` and TMDb responses in the browser, so the suite does not depend on live AI, worker, or poster services.
+
+To run Playwright locally, make sure the browser binary is installed once:
+
+```bash
+pnpm exec playwright install chromium
+pnpm test:e2e
+```
+
+`pnpm test:e2e` reuses an existing local server when one is already running on `http://127.0.0.1:3000`; otherwise it builds the app and starts a local production server automatically.
 
 ### Deployment
 
@@ -337,11 +350,11 @@ This project uses GitHub Actions for continuous integration and automated Cloudf
 
 ### Workflows
 
-| Workflow                 | Trigger                           | What it does                                                                                                                                  |
-| ------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`                 | Push / PR → `main`                | ESLint, TypeScript type-check, Jest (95% coverage threshold). Uploads a coverage report artifact and auto-commits a coverage badge to `main`. |
-| `deploy.yml`             | Push → `main` (worker files only) | Deploys the Supabase Cloudflare Worker via Wrangler.                                                                                          |
-| `supabase-keepalive.yml` | Daily schedule                    | Runs a keepalive query against Supabase so the free-tier project stays active.                                                                |
+| Workflow                 | Trigger                           | What it does                                                                                                                                        |
+| ------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`                 | Push / PR → `main`                | ESLint, TypeScript type-check, Jest coverage, and a deterministic Playwright Chromium suite. Uploads coverage and Playwright artefacts when needed. |
+| `deploy.yml`             | Push → `main` (worker files only) | Deploys the Supabase Cloudflare Worker via Wrangler.                                                                                                |
+| `supabase-keepalive.yml` | Daily schedule                    | Runs a keepalive query against Supabase so the free-tier project stays active.                                                                      |
 
 ### Required GitHub secrets
 
@@ -391,8 +404,12 @@ plotline-ai/
 │   └── supabase-worker.ts        # Cloudflare Worker for Supabase operations
 ├── public/
 │   └── constants/movies.txt      # Movie corpus for embedding seeding
+├── tests/
+│   ├── e2e/                      # Playwright browser specs + route stubs
+│   └── support/                  # Shared deterministic test fixtures
 ├── wrangler.supabase.toml
 ├── jest.config.js
+├── playwright.config.ts
 ├── tailwind.config.ts
 └── package.json
 ```
