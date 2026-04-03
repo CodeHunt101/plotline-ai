@@ -4,27 +4,35 @@ import { useMovieContext } from "@/contexts/MovieContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useReducer, useRef } from "react";
 import Image from "next/image";
-import { searchMoviePoster } from "@/lib/services/tmdb";
+import { searchMoviePoster, getMovieWatchProviders, WatchProvidersData } from "@/lib/services/tmdb";
 import { experimental_useObject as useObject } from "@ai-sdk/react";
 import { movieRecommendationSchema } from "@/types/api";
+import { getUserCountry } from "@/lib/utils/geolocation";
 
 type RecommendationsState = {
   currentIndex: number;
   posterUrls: Record<string, string>;
-  isLoadingPoster: boolean;
+  watchProviders: Record<string, WatchProvidersData | null>;
+  loadingPosters: Record<string, boolean>;
 };
 
 const initialRecommendationsState: RecommendationsState = {
   currentIndex: 0,
   posterUrls: {},
-  isLoadingPoster: true,
+  watchProviders: {},
+  loadingPosters: {},
 };
 
 type RecommendationsAction =
   | { type: "NEXT"; totalMovies: number }
   | { type: "POSTER_CACHE_HIT" }
-  | { type: "POSTER_FETCH_START" }
-  | { type: "POSTER_FETCH_SUCCESS"; name: string; url: string }
+  | { type: "POSTER_FETCH_START"; name: string }
+  | {
+      type: "POSTER_FETCH_SUCCESS";
+      name: string;
+      url: string;
+      providers: WatchProvidersData | null;
+    }
   | { type: "POSTER_FETCH_ERROR"; name: string };
 
 function recommendationsViewReducer(
@@ -38,20 +46,25 @@ function recommendationsViewReducer(
         currentIndex: state.currentIndex === action.totalMovies - 1 ? 0 : state.currentIndex + 1,
       };
     case "POSTER_CACHE_HIT":
-      return { ...state, isLoadingPoster: false };
+      return state;
     case "POSTER_FETCH_START":
-      return { ...state, isLoadingPoster: true };
+      return {
+        ...state,
+        loadingPosters: { ...state.loadingPosters, [action.name]: true },
+      };
     case "POSTER_FETCH_SUCCESS":
       return {
         ...state,
-        isLoadingPoster: false,
         posterUrls: { ...state.posterUrls, [action.name]: action.url },
+        watchProviders: { ...state.watchProviders, [action.name]: action.providers },
+        loadingPosters: { ...state.loadingPosters, [action.name]: false },
       };
     case "POSTER_FETCH_ERROR":
       return {
         ...state,
-        isLoadingPoster: false,
         posterUrls: { ...state.posterUrls, [action.name]: "" },
+        watchProviders: { ...state.watchProviders, [action.name]: null },
+        loadingPosters: { ...state.loadingPosters, [action.name]: false },
       };
   }
 }
@@ -60,9 +73,32 @@ export default function RecommendationsClient() {
   const { participantsData, timeAvailable, resetMovieSession } = useMovieContext();
   const router = useRouter();
   const [state, dispatch] = useReducer(recommendationsViewReducer, initialRecommendationsState);
-  const { currentIndex, posterUrls, isLoadingPoster } = state;
+  const { currentIndex, posterUrls, watchProviders, loadingPosters } = state;
   const hasSubmittedRef = useRef(false);
   const wasStoppedRef = useRef(false);
+  const userCountryRef = useRef<string | null>(null);
+  const nextButtonRef = useRef<HTMLButtonElement>(null);
+  const countryRequestRef = useRef<Promise<string> | null>(null);
+
+  function getResolvedUserCountry() {
+    if (userCountryRef.current) {
+      return Promise.resolve(userCountryRef.current);
+    }
+
+    if (!countryRequestRef.current) {
+      countryRequestRef.current = getUserCountry().then((country) => {
+        userCountryRef.current = country;
+        return country;
+      });
+    }
+
+    return countryRequestRef.current;
+  }
+
+  useEffect(() => {
+    void getResolvedUserCountry();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (participantsData.length === 0) {
@@ -91,7 +127,7 @@ export default function RecommendationsClient() {
     };
   }, [stop]);
 
-  const recommendedMovies = object?.recommendedMovies || [];
+  const recommendedMovies = object?.recommendedMovies ?? [];
   const currentMovie = recommendedMovies[currentIndex];
   const currentMovieName = currentMovie?.name?.trim() || "";
   const currentMovieReleaseYear = currentMovie?.releaseYear?.trim() || "";
@@ -105,6 +141,77 @@ export default function RecommendationsClient() {
     !error &&
     recommendedMovies.length === 0;
 
+  const fetchControllersRef = useRef<{ [key: string]: AbortController }>({});
+
+  useEffect(() => {
+    const controllers = fetchControllersRef.current;
+    return () => {
+      Object.values(controllers).forEach((c) => c.abort());
+    };
+  }, []);
+
+  async function fetchMovieData(movieName: string, isBackground: boolean) {
+    if (!movieName || posterUrls[movieName] !== undefined || fetchControllersRef.current[movieName])
+      return;
+
+    const controller = new AbortController();
+    fetchControllersRef.current[movieName] = controller;
+
+    if (!isBackground) {
+      dispatch({ type: "POSTER_FETCH_START", name: movieName });
+    }
+
+    try {
+      const result = await searchMoviePoster(movieName);
+      if (controller.signal.aborted) return;
+
+      if (!result) {
+        if (!isBackground) {
+          dispatch({ type: "POSTER_FETCH_ERROR", name: movieName });
+        }
+        return;
+      }
+
+      let providers: WatchProvidersData | null = null;
+      try {
+        const userCountry = await getResolvedUserCountry();
+        if (controller.signal.aborted) return;
+
+        const fetchedProviders = await getMovieWatchProviders(result.id, userCountry);
+        if (controller.signal.aborted) return;
+
+        if (fetchedProviders) {
+          providers = fetchedProviders;
+        } else if (userCountry !== "AU") {
+          const fallbackProviders = await getMovieWatchProviders(result.id, "AU");
+          if (controller.signal.aborted) return;
+          if (fallbackProviders) {
+            providers = fallbackProviders;
+          }
+        }
+      } catch (providersError) {
+        console.error("Error fetching watch providers:", providersError);
+      }
+
+      if (!controller.signal.aborted) {
+        dispatch({
+          type: "POSTER_FETCH_SUCCESS",
+          name: movieName,
+          url: result.posterUrl,
+          providers,
+        });
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      console.error("Error fetching movie data:", error);
+      if (!controller.signal.aborted && !isBackground) {
+        dispatch({ type: "POSTER_FETCH_ERROR", name: movieName });
+      }
+    } finally {
+      delete fetchControllersRef.current[movieName];
+    }
+  }
+
   useEffect(() => {
     if (!hasRenderableCurrentMovie) return;
 
@@ -113,35 +220,53 @@ export default function RecommendationsClient() {
       return;
     }
 
-    let cancelled = false;
-    dispatch({ type: "POSTER_FETCH_START" });
-    void searchMoviePoster(currentMovieName)
-      .then((url) => {
-        if (!cancelled) {
-          dispatch({
-            type: "POSTER_FETCH_SUCCESS",
-            name: currentMovieName,
-            url: url || "",
-          });
-        }
-      })
-      .catch((error) => {
-        console.error("Error fetching poster:", error);
-        if (!cancelled) {
-          dispatch({ type: "POSTER_FETCH_ERROR", name: currentMovieName });
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    void fetchMovieData(currentMovieName, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMovieName, hasRenderableCurrentMovie, posterUrls]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && recommendedMovies.length > 1) {
+          const nextIndex = (currentIndex + 1) % recommendedMovies.length;
+          const nextMovie = recommendedMovies[nextIndex];
+          const nextMovieName = nextMovie?.name?.trim() || "";
+
+          if (nextMovieName && posterUrls[nextMovieName] === undefined) {
+            void fetchMovieData(nextMovieName, true);
+          }
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (nextButtonRef.current) {
+      observer.observe(nextButtonRef.current);
+    }
+
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, recommendedMovies, posterUrls]);
 
   const handleNextMovie = () => {
     dispatch({ type: "NEXT", totalMovies: recommendedMovies.length });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const currentPosterUrl = currentMovieName ? posterUrls[currentMovieName] : "";
+  const currentProviders = currentMovieName ? watchProviders[currentMovieName] : null;
+  const isLoadingPoster = currentMovieName ? (loadingPosters[currentMovieName] ?? false) : false;
+
+  // Deduplicate and combine all providers for display
+  const allProviders = currentProviders
+    ? [
+        ...(currentProviders.flatrate || []),
+        ...(currentProviders.free || []),
+        ...(currentProviders.ads || []),
+        ...(currentProviders.rent || []),
+        ...(currentProviders.buy || []),
+      ].filter((v, i, a) => a.findIndex((t) => t.provider_id === v.provider_id) === i)
+    : [];
 
   return (
     <>
@@ -231,16 +356,66 @@ export default function RecommendationsClient() {
               )}
             </div>
 
-            <div className="mt-4 text-sm text-gray-400" role="status" aria-live="polite">
+            {currentProviders && (
+              <div className="mt-8 border-t border-gray-700 pt-6">
+                <h3 className="text-xl font-semibold mb-4 text-center">Watch Providers</h3>
+                {allProviders.length > 0 ? (
+                  <div className="flex flex-wrap justify-center gap-4">
+                    {allProviders.map((provider) => (
+                      <div
+                        key={provider.provider_id}
+                        className="relative w-12 h-12 rounded-xl overflow-hidden shadow-md bg-gray-800"
+                        title={provider.provider_name}
+                      >
+                        <Image
+                          src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
+                          alt={provider.provider_name}
+                          fill
+                          sizes="48px"
+                          className="object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-400">No providers available.</p>
+                )}
+                {currentProviders.link && (
+                  <div className="text-center mt-5">
+                    <a
+                      href={currentProviders.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-sm btn-outline px-6"
+                    >
+                      View on TMDb
+                    </a>
+                  </div>
+                )}
+                <div className="text-center mt-3">
+                  <small className="text-gray-400">
+                    Streaming availability data provided by JustWatch
+                  </small>
+                </div>
+              </div>
+            )}
+
+            <div
+              className="mt-6 text-sm text-gray-400 text-center"
+              role="status"
+              aria-live="polite"
+            >
               Movie {currentIndex + 1} of {recommendedMovies.length}
             </div>
-            <button
-              onClick={handleNextMovie}
-              disabled={recommendedMovies.length <= 1}
-              className="btn btn-primary block mb-3 mx-auto text-3xl w-full mt-6"
-            >
-              Next Movie
-            </button>
+            {recommendedMovies.length > 1 && (
+              <button
+                ref={nextButtonRef}
+                onClick={handleNextMovie}
+                className="btn btn-primary block mb-3 mx-auto text-3xl w-full mt-6 sticky bottom-4 z-10 opacity-75 hover:opacity-100 focus-visible:opacity-100 transition-opacity duration-150 ease-in-out"
+              >
+                Next Movie
+              </button>
+            )}
           </>
         )}
       </div>

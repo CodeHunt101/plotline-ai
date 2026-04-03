@@ -104,6 +104,7 @@ sequenceDiagram
     participant Supabase as Supabase<br/>(pgvector)
     participant LLM as LLM<br/>(Gemini / OpenRouter)
     participant TMDB as TMDB API
+    participant API_Country as API Country<br/>(api.country.is)
 
     User->>Browser: Submit movie preferences<br/>(last participant)
     Browser->>RecAPI: POST participantsData + timeAvailable
@@ -135,10 +136,14 @@ sequenceDiagram
 
     loop For each recommended movie
         Browser->>TMDB: searchMoviePoster(title)
-        TMDB-->>Browser: poster URL
+        TMDB-->>Browser: poster URL + movie ID
+        Browser->>API_Country: fetch user country
+        API_Country-->>Browser: AU (cached)
+        Browser->>TMDB: getMovieWatchProviders(id, country)
+        TMDB-->>Browser: watch providers list
     end
 
-    Browser-->>User: Recommendations carousel<br/>with posters
+    Browser-->>User: Recommendations carousel<br/>with posters & watch providers
 ```
 
 </details>
@@ -168,13 +173,13 @@ The movie corpus lives in `public/constants/movies.txt` and is chunked and embed
 
 The matched movie content is split into individual entries and formatted as a "Movie List Context". This context, together with the original participant preferences, is sent to the LLM. We call **Google Gemini 2.5 Flash** (primary) via the Vercel AI SDK `streamObject` function to rank and filter the candidates. If Google is unavailable or its daily quota is exhausted (HTTP 429/403), the request automatically cascades through a series of **OpenRouter** fallbacks: **MiniMax M2.5**, **Llama 3.3 70B**, and finally **openrouter/free** (dynamic auto-router).
 
-Quota errors trigger individualized circuit breakers: Google drops subsequent requests for **24 hours**, whereas transient OpenRouter drops bypass that specific model for just **5 minutes** before retrying.
+Quota errors trigger individualised circuit breakers: Google drops subsequent requests for **24 hours**, whereas transient OpenRouter drops bypass that specific model for just **5 minutes** before retrying.
 
 A structured system prompt paired with a **Zod** schema (`movieRecommendationSchema`) instructs the model to return a stream of between 1 and 10 movies as a structured object, filtered by time constraints, era preference, mood, and genre fit. The server pipes this stream continuously back to the Next.js client, allowing the UI to display recommendations progressively as they are generated.
 
 ### 5. Fallback and display
 
-If the LLM response cannot be parsed as valid JSON, a **heuristic fallback** (`lib/utils/recommendations.ts`) extracts movie titles, years, and synopses directly from the raw vector-match text. Movie posters are fetched from the **TMDB API** and displayed in a carousel.
+If the LLM response cannot be parsed as valid JSON, a **heuristic fallback** (`lib/utils/recommendations.ts`) extracts movie titles, years, and synopses directly from the raw vector-match text. Movie posters and location-based streaming watch providers (provided by JustWatch) are fetched from the **TMDB API** and displayed in a carousel. The user's country is determined via `api.country.is` to localise the streaming providers shown.
 
 ## Tech Stack
 

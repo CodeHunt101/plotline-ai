@@ -13,6 +13,15 @@ export const recommendationFixtures = {
       },
     ],
   },
+  singleMovie: {
+    recommendedMovies: [
+      {
+        name: "Mad Max: Fury Road",
+        releaseYear: "2015",
+        synopsis: "A relentless desert chase with furious stunts and a huge heart.",
+      },
+    ],
+  },
   empty: {
     recommendedMovies: [],
   },
@@ -21,9 +30,9 @@ export const recommendationFixtures = {
 export type RecommendationFixture =
   (typeof recommendationFixtures)[keyof typeof recommendationFixtures];
 
-export function createTmdbSearchResponse(posterPath?: string) {
+export function createTmdbSearchResponse(posterPath?: string, id = 12345) {
   return {
-    results: posterPath ? [{ poster_path: posterPath }] : [],
+    results: posterPath ? [{ id, poster_path: posterPath }] : [],
   };
 }
 
