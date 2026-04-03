@@ -62,6 +62,7 @@ export default function RecommendationsClient() {
   const [state, dispatch] = useReducer(recommendationsViewReducer, initialRecommendationsState);
   const { currentIndex, posterUrls, isLoadingPoster } = state;
   const hasSubmittedRef = useRef(false);
+  const wasStoppedRef = useRef(false);
 
   useEffect(() => {
     if (participantsData.length === 0) {
@@ -75,14 +76,17 @@ export default function RecommendationsClient() {
   });
 
   useEffect(() => {
-    if (participantsData.length > 0 && !hasSubmittedRef.current) {
-      hasSubmittedRef.current = true;
-      submit({ participantsData, timeAvailable });
-    }
+    if (participantsData.length === 0) return;
+    if (hasSubmittedRef.current && !wasStoppedRef.current) return;
+
+    hasSubmittedRef.current = true;
+    wasStoppedRef.current = false;
+    void submit({ participantsData, timeAvailable });
   }, [participantsData, timeAvailable, submit]);
 
   useEffect(() => {
     return () => {
+      wasStoppedRef.current = true;
       stop();
     };
   }, [stop]);

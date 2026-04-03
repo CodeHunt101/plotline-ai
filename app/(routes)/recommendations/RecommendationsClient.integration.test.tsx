@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { StrictMode, useEffect, useState } from "react";
 import RecommendationsClient from "./RecommendationsClient";
 import { MovieProvider, useMovieContext } from "@/contexts/MovieContext";
 import {
@@ -53,8 +53,8 @@ function MovieSessionSnapshot() {
   );
 }
 
-function renderRecommendations() {
-  return render(
+function renderRecommendations({ strictMode = false }: { strictMode?: boolean } = {}) {
+  const content = (
     <MovieProvider>
       <RecommendationsSessionInitialiser>
         <RecommendationsClient />
@@ -62,6 +62,8 @@ function renderRecommendations() {
       </RecommendationsSessionInitialiser>
     </MovieProvider>
   );
+
+  return render(strictMode ? <StrictMode>{content}</StrictMode> : content);
 }
 
 function getRequestUrl(input: RequestInfo | URL): string {
@@ -121,6 +123,38 @@ describe("RecommendationsClient integration", () => {
     expect(screen.getByAltText("Mad Max: Fury Road")).toBeInTheDocument();
   });
 
+  it("still submits recommendations in strict mode after effect replay", async () => {
+    let recommendationRequestCount = 0;
+
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/recommendations") {
+        recommendationRequestCount += 1;
+        return Promise.resolve(createRecommendationStreamResponse());
+      }
+
+      if (url.startsWith("https://api.themoviedb.org/")) {
+        return Promise.resolve(
+          createJsonResponse(tmdbFixtures.postersByQuery["Mad Max: Fury Road"])
+        );
+      }
+
+      return Promise.reject(new Error(`Unhandled fetch: ${url}`));
+    }) as typeof fetch;
+
+    renderRecommendations({ strictMode: true });
+
+    await waitFor(() => {
+      expect(recommendationRequestCount).toBeGreaterThan(0);
+      expect(
+        screen.getByRole("heading", { name: "Mad Max: Fury Road (2015)" })
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Movie 1 of 2")).toBeInTheDocument();
+  });
+
   it("renders a no-results state when the streamed response is empty", async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = getRequestUrl(input);
@@ -164,6 +198,24 @@ describe("RecommendationsClient integration", () => {
     });
 
     expect(screen.getByText(/Pipeline failed/)).toBeInTheDocument();
+  });
+
+  it("renders an error message when the recommendations request cannot be reached at the network level", async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/recommendations") {
+        return Promise.reject(new Error("Failed to fetch"));
+      }
+
+      return Promise.reject(new Error(`Unhandled fetch: ${url}`));
+    }) as typeof fetch;
+
+    renderRecommendations();
+
+    await waitFor(() => {
+      expect(screen.getByText("Oops! Something went wrong")).toBeInTheDocument();
+    });
   });
 
   it("clears the movie session and routes home when Start Over is pressed", async () => {
