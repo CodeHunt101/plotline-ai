@@ -6,6 +6,16 @@ import Recommendations from "./RecommendationsClient";
 import { metadata } from "./page";
 import { experimental_useObject } from "@ai-sdk/react";
 
+const originalNodeEnv = process.env.NODE_ENV;
+
+function setNodeEnv(value: string | undefined) {
+  Object.defineProperty(process.env, "NODE_ENV", {
+    value,
+    configurable: true,
+    writable: true,
+  });
+}
+
 jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
 }));
@@ -50,6 +60,7 @@ describe("Recommendations Component", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    setNodeEnv(originalNodeEnv);
     (useRouter as jest.Mock).mockReturnValue({ push: mockPush, replace: mockReplace });
     (useMovieContext as jest.Mock).mockReturnValue({
       participantsData: [{ favouriteMovie: "Matrix" }],
@@ -180,7 +191,9 @@ describe("Recommendations Component", () => {
     });
   });
 
-  it("shows the stream debugger while loading with movies in the list", async () => {
+  it("shows the stream debugger while loading with movies in the list in development", async () => {
+    setNodeEnv("development");
+
     (experimental_useObject as jest.Mock).mockReturnValue({
       object: {
         recommendedMovies: [{ name: "Test Movie 1", releaseYear: "2023", synopsis: "Syn 1" }],
@@ -198,6 +211,25 @@ describe("Recommendations Component", () => {
       expect(screen.getByTestId("stream-debugger")).toBeInTheDocument();
       expect(screen.getByText(/Movies parsed from stream so far: 1/)).toBeInTheDocument();
     });
+  });
+
+  it("hides the stream debugger outside development", () => {
+    setNodeEnv("test");
+
+    (experimental_useObject as jest.Mock).mockReturnValue({
+      object: {
+        recommendedMovies: [{ name: "Test Movie 1", releaseYear: "2023", synopsis: "Syn 1" }],
+      },
+      submit: mockSubmit,
+      isLoading: true,
+      error: undefined,
+      clear: mockClear,
+      stop: mockStop,
+    });
+
+    render(<Recommendations />);
+
+    expect(screen.queryByTestId("stream-debugger")).not.toBeInTheDocument();
   });
 
   it("uses cached poster on second navigation to the same movie", async () => {

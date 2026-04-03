@@ -70,9 +70,17 @@ export default function RootLayout({
       <body
         className={`${syne} ${inter} antialiased bg-base-100 min-h-screen flex flex-col justify-center items-center py-4`}
       >
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-content focus:rounded focus:text-sm"
+        >
+          Skip to main content
+        </a>
         <MovieProvider>
           <Header />
-          <main className="mx-auto px-8 flex flex-col items-center w-96">{children}</main>
+          <main id="main-content" className="mx-auto px-8 flex flex-col items-center w-96">
+            {children}
+          </main>
           <footer className="mx-auto text-center mt-8 pb-2 flex flex-col items-center gap-2">
             <p className="text-sm text-base-content/80">By Harold Torres Marino</p>
             <nav aria-label="Social links" className="flex items-center gap-4">
@@ -80,7 +88,7 @@ export default function RootLayout({
                 href="https://www.linkedin.com/in/harold-torres-marino/"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="LinkedIn"
+                aria-label="LinkedIn (opens in a new tab)"
                 className="text-base-content/80 hover:text-primary transition-colors"
               >
                 <svg
@@ -98,16 +106,16 @@ export default function RootLayout({
                 href="https://haroldtorres.dev"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Portfolio website"
+                aria-label="Portfolio website (opens in a new tab)"
                 className="text-base-content/80 hover:text-primary transition-colors"
               >
-                <Globe size={18} />
+                <Globe size={18} aria-hidden="true" />
               </a>
               <a
                 href="https://github.com/codehunt101"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="GitHub"
+                aria-label="GitHub (opens in a new tab)"
                 className="text-base-content/80 hover:text-primary transition-colors"
               >
                 <svg
@@ -126,7 +134,7 @@ export default function RootLayout({
                 aria-label="Send email"
                 className="text-base-content/80 hover:text-primary transition-colors"
               >
-                <Mail size={18} />
+                <Mail size={18} aria-hidden="true" />
               </a>
             </nav>
           </footer>
