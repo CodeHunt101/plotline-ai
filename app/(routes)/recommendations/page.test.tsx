@@ -1,10 +1,11 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { useRouter } from "next/navigation";
 import { useMovieContext } from "@/contexts/MovieContext";
-import { searchMoviePoster } from "@/lib/services/tmdb";
+import { searchMoviePoster, getMovieWatchProviders } from "@/lib/services/tmdb";
 import Recommendations from "./RecommendationsClient";
 import { metadata } from "./page";
 import { experimental_useObject } from "@ai-sdk/react";
+import { getUserCountry } from "@/lib/utils/geolocation";
 
 const originalNodeEnv = process.env.NODE_ENV;
 
@@ -27,6 +28,11 @@ jest.mock("next/image", () => ({
 
 jest.mock("@/lib/services/tmdb", () => ({
   searchMoviePoster: jest.fn(),
+  getMovieWatchProviders: jest.fn(),
+}));
+
+jest.mock("@/lib/utils/geolocation", () => ({
+  getUserCountry: jest.fn(),
 }));
 
 jest.mock("@/contexts/MovieContext", () => ({
@@ -67,7 +73,12 @@ describe("Recommendations Component", () => {
       timeAvailable: "2 hours",
       resetMovieSession: mockResetMovieSession,
     });
-    (searchMoviePoster as jest.Mock).mockResolvedValue("http://example.com/poster.jpg");
+    (getUserCountry as jest.Mock).mockResolvedValue("AU");
+    (searchMoviePoster as jest.Mock).mockResolvedValue({
+      posterUrl: "http://example.com/poster.jpg",
+      id: 12345,
+    });
+    (getMovieWatchProviders as jest.Mock).mockResolvedValue(undefined);
     (experimental_useObject as jest.Mock).mockReturnValue({
       object: {
         recommendedMovies: [
@@ -247,7 +258,10 @@ describe("Recommendations Component", () => {
       clear: mockClear,
       stop: mockStop,
     });
-    (searchMoviePoster as jest.Mock).mockResolvedValue("http://example.com/poster.jpg");
+    (searchMoviePoster as jest.Mock).mockResolvedValue({
+      posterUrl: "http://example.com/poster.jpg",
+      id: 12345,
+    });
 
     render(<Recommendations />);
 

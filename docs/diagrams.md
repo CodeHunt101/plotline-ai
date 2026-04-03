@@ -75,6 +75,7 @@ sequenceDiagram
     participant Supabase as Supabase<br/>(pgvector)
     participant LLM as LLM<br/>(Gemini / OpenRouter)
     participant TMDB as TMDB API
+    participant API_Country as API Country<br/>(api.country.is)
 
     User->>Browser: Submit movie preferences<br/>(last participant)
     Browser->>RecAPI: POST participantsData + timeAvailable
@@ -106,10 +107,14 @@ sequenceDiagram
 
     loop For each recommended movie
         Browser->>TMDB: searchMoviePoster(title)
-        TMDB-->>Browser: poster URL
+        TMDB-->>Browser: poster URL + movie ID
+        Browser->>API_Country: fetch user country
+        API_Country-->>Browser: AU (cached)
+        Browser->>TMDB: getMovieWatchProviders(id, country)
+        TMDB-->>Browser: watch providers list
     end
 
-    Browser-->>User: Recommendations carousel<br/>with posters
+    Browser-->>User: Recommendations carousel<br/>with posters & watch providers
 ```
 
 ---

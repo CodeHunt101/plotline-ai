@@ -15,4 +15,11 @@ Object.assign(global, {
   TextEncoder,
   TransformStream,
   WritableStream,
+  scrollTo: jest.fn(),
+  IntersectionObserver: jest.fn(() => ({
+    observe: jest.fn(),
+    unobserve: jest.fn(),
+    disconnect: jest.fn(),
+    takeRecords: jest.fn(),
+  })),
 });
