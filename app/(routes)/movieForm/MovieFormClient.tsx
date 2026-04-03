@@ -58,7 +58,7 @@ const MovieFormClient = () => {
 
   return (
     <>
-      <h2 className="text-2xl mb-4 text-center">Person #{currentParticipant}</h2>
+      <h1 className="text-2xl mb-4 text-center">Person #{currentParticipant}</h1>
       <form onSubmit={handleFormSubmission} className="space-y-6">
         <MovieFormFields
           formData={formData}
@@ -67,8 +67,8 @@ const MovieFormClient = () => {
           handleTypeChange={handleTypeChange}
         />
 
-        <button type="submit" className="btn btn-primary block w-full text-3xl">
-          {currentParticipant === totalParticipants ? "Get Movie" : "Next"}
+        <button type="submit" className="btn btn-primary block w-full text-3xl font-display">
+          {currentParticipant === totalParticipants ? "Get Movies" : "Next"}
         </button>
 
         {error && <p className="text-red-500 text-center">{error}</p>}

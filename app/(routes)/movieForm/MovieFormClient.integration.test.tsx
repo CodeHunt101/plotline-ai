@@ -104,7 +104,7 @@ describe("MovieFormClient integration", () => {
       }
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Get Movie" }));
+    fireEvent.click(screen.getByRole("button", { name: "Get Movies" }));
 
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith("/recommendations");

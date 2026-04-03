@@ -13,8 +13,8 @@ jest.mock("next/image", () => ({
 }));
 
 // Mock the image import
-jest.mock("@/public/popcorn.png", () => ({
-  src: "/mocked-popcorn.png",
+jest.mock("@/public/film.png", () => ({
+  src: "/mocked-film.png",
   height: 100,
   width: 100,
 }));
@@ -46,7 +46,7 @@ describe("Logo Component", () => {
     const { container } = render(<Logo />);
     const image = container.querySelector("img");
 
-    expect(image).toHaveAttribute("alt", "Popcorn");
+    expect(image).toHaveAttribute("alt", "App logo representing a film");
   });
 
   // Test cleanup after each test

@@ -10,8 +10,10 @@
 body {
   color: var(--foreground, #ffffff);
   font-family: var(--ff-sans-serif, Arial, Helvetica, sans-serif);
+  line-height: 1.6;
 }
 
 h1 {
-  font-family: var(--ff-serif, Arial, Helvetica, sans-serif);
+  font-family: var(--ff-display, Arial, Helvetica, sans-serif);
+  letter-spacing: -0.02em;
 }

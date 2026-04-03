@@ -66,7 +66,10 @@ const ParticipantsSetup = () => {
         />
       </div>
 
-      <button onClick={handleStart} className="btn btn-primary block mx-auto w-full text-3xl">
+      <button
+        onClick={handleStart}
+        className="btn btn-primary block mx-auto w-full text-3xl font-display"
+      >
         Start
       </button>
     </div>
