@@ -1,12 +1,10 @@
 const CACHE_KEY = "user_country_code";
-const FALLBACK_COUNTRY = "AU";
-
 /**
  * Fetches the user's country code based on their IP address using api.country.is.
  * Values are cached in local storage to prevent rate limits and repeated network calls.
- * Returns `"AU"` on failure or as a predefined fallback.
+ * Returns `null` when the user's country cannot be determined.
  */
-export async function getUserCountry(): Promise<string> {
+export async function getUserCountry(): Promise<string | null> {
   // Check local storage primarily
   try {
     const cached = localStorage.getItem(CACHE_KEY);
@@ -39,5 +37,5 @@ export async function getUserCountry(): Promise<string> {
     console.error("Failed to determine user country:", error);
   }
 
-  return FALLBACK_COUNTRY;
+  return null;
 }
