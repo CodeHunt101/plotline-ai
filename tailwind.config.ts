@@ -28,6 +28,9 @@ export default {
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
+      fontFamily: {
+        display: ["var(--ff-display)", "system-ui", "sans-serif"],
+      },
     },
   },
   plugins: [daisyui],

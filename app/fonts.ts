@@ -1,22 +1,23 @@
-import { Carter_One, Roboto_Slab } from "next/font/google";
+import { Syne, Inter } from "next/font/google";
 
-const carterOneInit = Carter_One({
-  weight: "400",
+const syneInit = Syne({
+  weight: ["800"],
   subsets: ["latin"],
-  variable: "--ff-serif",
-  fallback: ["serif"],
+  variable: "--ff-display",
+  display: "swap",
+  fallback: ["system-ui", "sans-serif"],
   preload: true,
   adjustFontFallback: false,
 });
-const robotoSlabInit = Roboto_Slab({
-  weight: ["300", "400", "700"],
-  display: "swap",
+
+const interInit = Inter({
+  weight: ["500"],
   subsets: ["latin"],
   variable: "--ff-sans-serif",
-  fallback: ["sans-serif"],
+  display: "swap",
   preload: true,
   adjustFontFallback: false,
 });
 
-export const carterOne = carterOneInit.variable;
-export const robotoSlab = robotoSlabInit.variable;
+export const syne = syneInit.variable;
+export const inter = interInit.variable;

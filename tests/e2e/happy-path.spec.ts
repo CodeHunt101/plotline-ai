@@ -39,7 +39,7 @@ test.describe("Core recommendation journey", () => {
 
     const recommendationsRequest = page.waitForRequest("**/api/recommendations");
     const recommendationsResponse = page.waitForResponse("**/api/recommendations");
-    await page.getByRole("button", { name: "Get Movie" }).click();
+    await page.getByRole("button", { name: "Get Movies" }).click();
 
     await expect(page).toHaveURL(/\/recommendations$/);
     await recommendationsRequest;

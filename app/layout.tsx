@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { carterOne, robotoSlab } from "./fonts";
+import { syne, inter } from "./fonts";
 import { MovieProvider } from "@/contexts/MovieContext";
 import Header from "@/components/features/Header";
 import { Globe, Mail } from "lucide-react";
@@ -68,7 +68,7 @@ export default function RootLayout({
   return (
     <html lang={SITE_LANGUAGE}>
       <body
-        className={`${carterOne} ${robotoSlab} antialiased bg-base-100 min-h-screen flex flex-col justify-center items-center py-4`}
+        className={`${syne} ${inter} antialiased bg-base-100 min-h-screen flex flex-col justify-center items-center py-4`}
       >
         <MovieProvider>
           <Header />

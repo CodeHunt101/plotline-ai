@@ -39,13 +39,13 @@ describe("MovieForm", () => {
   it("renders the form with initial state", () => {
     renderMovieForm();
     expect(screen.getByText("Person #1")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /get movie/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /get movies/i })).toBeInTheDocument();
   });
 
   it("returns a validation error message when required fields are empty", async () => {
     renderMovieForm();
 
-    const submitBtn = screen.getByRole("button", { name: /get movie/i });
+    const submitBtn = screen.getByRole("button", { name: /get movies/i });
     fireEvent.click(submitBtn);
 
     expect(await screen.findByText("Please fill out all required fields")).toBeInTheDocument();
@@ -60,7 +60,7 @@ describe("MovieForm", () => {
     fireEvent.change(movieInput, { target: { value: "The Matrix" } });
     fireEvent.change(personInput, { target: { value: "Keanu Reeves" } });
 
-    const submitBtn = screen.getByRole("button", { name: /get movie/i });
+    const submitBtn = screen.getByRole("button", { name: /get movies/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
