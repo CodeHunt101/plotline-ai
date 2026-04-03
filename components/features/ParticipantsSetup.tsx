@@ -41,8 +41,9 @@ const ParticipantsSetup = () => {
           onChange={(e) => setTotalParticipants(Number(e.target.value))}
           className="range"
           step="1"
+          aria-valuetext={`${totalParticipants} ${totalParticipants === 1 ? "person" : "people"}`}
         />
-        <div className="flex w-full justify-between px-2 text-base">
+        <div className="flex w-full justify-between px-2 text-base" aria-hidden="true">
           {Array.from({ length: MAX_PARTICIPANTS }, (_, i) => (
             <span key={i + 1}>{i + 1}</span>
           ))}

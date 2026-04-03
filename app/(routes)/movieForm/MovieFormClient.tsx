@@ -5,7 +5,7 @@ import MovieFormFields from "@/components/features/MovieFormFields";
 import { useMovieContext } from "@/contexts/MovieContext";
 import { MovieFormData } from "@/types/movie";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const INITIAL_FORM_STATE: MovieFormData = {
   favouriteMovie: "",
@@ -20,6 +20,13 @@ const MovieFormClient = () => {
 
   const [currentParticipant, setCurrentParticipant] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (currentParticipant > 1) {
+      headingRef.current?.focus();
+    }
+  }, [currentParticipant]);
 
   const {
     formData,
@@ -58,7 +65,9 @@ const MovieFormClient = () => {
 
   return (
     <>
-      <h1 className="text-2xl mb-4 text-center">Person #{currentParticipant}</h1>
+      <h1 ref={headingRef} tabIndex={-1} className="text-2xl mb-4 text-center">
+        Person #{currentParticipant}
+      </h1>
       <form onSubmit={handleFormSubmission} className="space-y-6">
         <MovieFormFields
           formData={formData}
@@ -71,7 +80,11 @@ const MovieFormClient = () => {
           {currentParticipant === totalParticipants ? "Get Movies" : "Next"}
         </button>
 
-        {error && <p className="text-red-500 text-center">{error}</p>}
+        {error && (
+          <p role="alert" className="text-red-500 text-center">
+            {error}
+          </p>
+        )}
       </form>
     </>
   );

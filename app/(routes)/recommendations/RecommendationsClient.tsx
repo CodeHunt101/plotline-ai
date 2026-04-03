@@ -147,13 +147,17 @@ export default function RecommendationsClient() {
     <>
       <div className="mt-6">
         {error && (
-          <div className="flex flex-col items-center justify-center p-8 bg-error/10 border border-error/20 rounded-2xl text-center mb-8 mx-auto max-w-md mt-10">
+          <div
+            role="alert"
+            className="flex flex-col items-center justify-center p-8 bg-error/10 border border-error/20 rounded-2xl text-center mb-8 mx-auto max-w-md mt-10"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-16 w-16 text-error mb-4"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -163,7 +167,7 @@ export default function RecommendationsClient() {
               />
             </svg>
             <h3 className="text-2xl font-bold text-error mb-2">Oops! Something went wrong</h3>
-            <p className="text-base text-gray-400 mb-6">
+            <p className="text-base text-gray-300 mb-6">
               {error.message.includes("All language models exhausted")
                 ? "Our AI movie experts are currently overwhelmed with requests. Please try again in a few minutes!"
                 : `We ran into a streaming issue: ${error.message}`}
@@ -172,9 +176,13 @@ export default function RecommendationsClient() {
         )}
 
         {!hasRenderableCurrentMovie && isLoading && !error && (
-          <div className="flex flex-col items-center justify-center h-[35rem] gap-5">
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex flex-col items-center justify-center h-[35rem] gap-5"
+          >
             <div className="text-3xl">Generating recommendations...</div>
-            <div className="loading loading-bars loading-lg"></div>
+            <div className="loading loading-bars loading-lg" aria-hidden="true"></div>
           </div>
         )}
 
@@ -184,7 +192,7 @@ export default function RecommendationsClient() {
             className="flex flex-col items-center justify-center p-8 bg-base-200 border border-base-300 rounded-2xl text-center mb-8 mx-auto max-w-md mt-10"
           >
             <h3 className="text-2xl font-bold mb-2">No strong matches this time</h3>
-            <p className="text-base text-gray-400">
+            <p className="text-base text-gray-300">
               We could not find a confident recommendation for this group yet. Try broadening the
               movie preferences or adding a bit more time, then have another go.
             </p>
@@ -196,7 +204,7 @@ export default function RecommendationsClient() {
             <h2 className="text-3xl text-center">
               {currentMovieName} {currentMovieReleaseYear ? `(${currentMovieReleaseYear})` : ""}
               {isLoading && currentIndex === recommendedMovies.length - 1 && (
-                <span className="loading loading-spinner loading-sm ml-2"></span>
+                <span className="loading loading-spinner loading-sm ml-2" aria-hidden="true"></span>
               )}
             </h2>
             {isLoadingPoster ? (
@@ -219,11 +227,11 @@ export default function RecommendationsClient() {
 
             <div className="text-lg mt-5 text-justify">
               {currentMovieSynopsis || (
-                <span className="animate-pulse text-gray-500">Generating synopsis...</span>
+                <span className="animate-pulse text-gray-400">Generating synopsis...</span>
               )}
             </div>
 
-            <div className="mt-4 text-sm text-gray-500">
+            <div className="mt-4 text-sm text-gray-400" role="status" aria-live="polite">
               Movie {currentIndex + 1} of {recommendedMovies.length}
             </div>
             <button
@@ -248,13 +256,15 @@ export default function RecommendationsClient() {
         Start Over
       </button>
 
-      {isLoading && (
+      {isLoading && process.env.NODE_ENV === "development" && (
         <div
           className="fixed bottom-4 right-4 bg-gray-900 border border-gray-700 text-white p-4 rounded-lg text-sm z-50 shadow-xl max-w-sm"
           data-testid="stream-debugger"
+          aria-live="polite"
+          aria-label="Stream debugger"
         >
           <div className="flex items-center gap-2 mb-2 font-bold text-success">
-            <span className="loading loading-spinner loading-xs"></span>
+            <span className="loading loading-spinner loading-xs" aria-hidden="true"></span>
             AI Stream Active
           </div>
           <div className="text-xs text-gray-300 mb-2">

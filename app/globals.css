@@ -17,3 +17,19 @@ h1 {
   font-family: var(--ff-display, Arial, Helvetica, sans-serif);
   letter-spacing: -0.02em;
 }
+
+*:focus-visible {
+  outline: 2px solid #51e08a;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
