@@ -76,12 +76,12 @@ export default function RecommendationsClient() {
   const { currentIndex, posterUrls, watchProviders, loadingPosters } = state;
   const hasSubmittedRef = useRef(false);
   const wasStoppedRef = useRef(false);
-  const userCountryRef = useRef<string | null>(null);
+  const userCountryRef = useRef<string | null | undefined>(undefined);
   const nextButtonRef = useRef<HTMLButtonElement>(null);
-  const countryRequestRef = useRef<Promise<string> | null>(null);
+  const countryRequestRef = useRef<Promise<string | null> | null>(null);
 
   function getResolvedUserCountry() {
-    if (userCountryRef.current) {
+    if (userCountryRef.current !== undefined) {
       return Promise.resolve(userCountryRef.current);
     }
 
@@ -97,7 +97,6 @@ export default function RecommendationsClient() {
 
   useEffect(() => {
     void getResolvedUserCountry();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -177,16 +176,12 @@ export default function RecommendationsClient() {
         const userCountry = await getResolvedUserCountry();
         if (controller.signal.aborted) return;
 
-        const fetchedProviders = await getMovieWatchProviders(result.id, userCountry);
-        if (controller.signal.aborted) return;
-
-        if (fetchedProviders) {
-          providers = fetchedProviders;
-        } else if (userCountry !== "AU") {
-          const fallbackProviders = await getMovieWatchProviders(result.id, "AU");
+        if (userCountry) {
+          const fetchedProviders = await getMovieWatchProviders(result.id, userCountry);
           if (controller.signal.aborted) return;
-          if (fallbackProviders) {
-            providers = fallbackProviders;
+
+          if (fetchedProviders) {
+            providers = fetchedProviders;
           }
         }
       } catch (providersError) {

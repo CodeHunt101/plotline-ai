@@ -49,16 +49,17 @@ describe("getUserCountry", () => {
     expect(window.localStorage.setItem).toHaveBeenCalledWith(CACHE_KEY, "US");
   });
 
-  it("should fallback to AU on API failure", async () => {
+  it("should return null on API failure", async () => {
     global.fetch = jest.fn(() => Promise.reject(new Error("Network error")));
     // Spying console.error to keep logs clean
     jest.spyOn(console, "error").mockImplementation(() => {});
 
     const result = await getUserCountry();
-    expect(result).toBe("AU");
+    expect(result).toBeNull();
+    expect(window.localStorage.setItem).not.toHaveBeenCalled();
   });
 
-  it("should ignore localStorage errors and fallback to AU if API fails", async () => {
+  it("should ignore localStorage errors and return null if API fails", async () => {
     Object.defineProperty(window, "localStorage", {
       value: {
         getItem: () => {
@@ -74,40 +75,43 @@ describe("getUserCountry", () => {
     jest.spyOn(console, "error").mockImplementation(() => {});
 
     const result = await getUserCountry();
-    expect(result).toBe("AU");
+    expect(result).toBeNull();
   });
 
-  it("should fallback to AU if API response format is unsupported", async () => {
+  it("should return null if API response format is unsupported", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({ not_country: "US" }),
     });
 
     const result = await getUserCountry();
-    expect(result).toBe("AU");
+    expect(result).toBeNull();
+    expect(window.localStorage.setItem).not.toHaveBeenCalled();
   });
 
-  it("should fallback to AU when the country value is not a string", async () => {
+  it("should return null when the country value is not a string", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({ country: 61 }),
     });
 
     const result = await getUserCountry();
-    expect(result).toBe("AU");
+    expect(result).toBeNull();
+    expect(window.localStorage.setItem).not.toHaveBeenCalled();
   });
 
-  it("should fallback to AU when the country code is not exactly two characters", async () => {
+  it("should return null when the country code is not exactly two characters", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: jest.fn().mockResolvedValue({ country: "AUS" }),
     });
 
     const result = await getUserCountry();
-    expect(result).toBe("AU");
+    expect(result).toBeNull();
+    expect(window.localStorage.setItem).not.toHaveBeenCalled();
   });
 
-  it("should fallback to AU when the country API returns a non-ok status", async () => {
+  it("should return null when the country API returns a non-ok status", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 500,
@@ -116,6 +120,7 @@ describe("getUserCountry", () => {
     jest.spyOn(console, "error").mockImplementation(() => {});
 
     const result = await getUserCountry();
-    expect(result).toBe("AU");
+    expect(result).toBeNull();
+    expect(window.localStorage.setItem).not.toHaveBeenCalled();
   });
 });

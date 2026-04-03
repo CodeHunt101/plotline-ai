@@ -807,6 +807,56 @@ describe("RecommendationsClient integration", () => {
     expect(screen.queryByText("Watch Providers")).not.toBeInTheDocument();
   });
 
+  it("keeps the poster visible when geolocation fails", async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/recommendations") {
+        return Promise.resolve(createRecommendationStreamResponse());
+      }
+      if (url.includes("/search/movie")) {
+        return Promise.resolve(
+          createJsonResponse(tmdbFixtures.postersByQuery["Mad Max: Fury Road"])
+        );
+      }
+      if (url.startsWith("https://api.country.is")) {
+        return Promise.reject(new Error("Country lookup unavailable"));
+      }
+      if (url.includes("/watch/providers")) {
+        return Promise.resolve(
+          createJsonResponse({
+            id: 12345,
+            results: {
+              AU: {
+                link: "https://au.toy",
+                flatrate: [
+                  {
+                    logo_path: "/au.jpg",
+                    provider_name: "AU Provider",
+                    provider_id: 1,
+                    display_priority: 1,
+                  },
+                ],
+              },
+            },
+          })
+        );
+      }
+
+      return Promise.reject(new Error(`Unhandled fetch: ${url}`));
+    }) as typeof fetch;
+
+    jest.spyOn(console, "error").mockImplementation(() => {});
+
+    renderRecommendations();
+
+    expect(
+      await screen.findByAltText("Mad Max: Fury Road", undefined, { timeout: 5000 })
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Watch Providers")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "AU Provider" })).not.toBeInTheDocument();
+  });
+
   it("does not let background prefetch clear the active poster loading state", async () => {
     let resolveMadMaxPoster: ((value: Response) => void) | undefined;
 
@@ -931,7 +981,7 @@ describe("RecommendationsClient integration", () => {
     expect(screen.queryByText("No providers available.")).not.toBeInTheDocument();
   });
 
-  it("falls back to AU providers when current country has no data", async () => {
+  it("does not fall back to AU providers when current country has no data", async () => {
     const fetchUrls: string[] = [];
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = getRequestUrl(input);
@@ -949,7 +999,7 @@ describe("RecommendationsClient integration", () => {
         return Promise.resolve(createJsonResponse({ country: "FR" })); // User in France
       }
       if (url.includes("/watch/providers")) {
-        // Return results that have AU but NOT FR, to trigger the fallback
+        // Return results that have AU but not FR to verify we do not cross over to AU.
         return Promise.resolve(
           createJsonResponse({
             id: 12345,
@@ -975,10 +1025,14 @@ describe("RecommendationsClient integration", () => {
     renderRecommendations();
 
     expect(
-      await screen.findByRole("img", { name: "AU Provider" }, { timeout: 5000 })
+      await screen.findByAltText("Mad Max: Fury Road", undefined, { timeout: 5000 })
     ).toBeInTheDocument();
+    expect(screen.queryByText("Watch Providers")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "AU Provider" })).not.toBeInTheDocument();
 
-    const providerLinks = fetchUrls.filter((u) => u.includes("/watch/providers"));
-    expect(providerLinks.length).toBeGreaterThanOrEqual(2); // One for FR, one for AU fallback
+    const countryRequests = fetchUrls.filter((u) => u.startsWith("https://api.country.is"));
+    const providerRequests = fetchUrls.filter((u) => u.includes("/watch/providers"));
+    expect(countryRequests).toHaveLength(1);
+    expect(providerRequests).toHaveLength(1);
   });
 });
